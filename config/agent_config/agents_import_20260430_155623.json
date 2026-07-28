@@ -1,0 +1,20 @@
+{
+  "export_time": "2026-04-30T15:07:01.188532",
+  "agents": [
+    {
+      "id": "agent_66fbc3da7fe84e3988fb3c2af3b13d0e",
+      "name": "故事创作",
+      "description": "故事创作",
+      "skills": [
+        "skill_de927db5faab455ea3ee2f1edf4fe373"
+      ],
+      "skill_names": [
+        "data-statistics"
+      ],
+      "config": {},
+      "status": "active",
+      "createdAt": "2026-04-30T11:22:44",
+      "updatedAt": "2026-04-30T11:43:16"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "export_time": "2026-05-12T16:28:35.560872",
+  "agents": [
+    {
+      "id": "agent_fbe96a2178214310af1821fdb5d1ca07",
+      "name": "测试",
+      "description": "",
+      "skills": [
+        "skill_1e778df0894344078c036a3e49c104d8"
+      ],
+      "skill_names": [
+        "weather-1_0_0"
+      ],
+      "config": {},
+      "status": "active",
+      "createdAt": "2026-05-12T15:12:44.469656",
+      "updatedAt": "2026-05-12T15:36:14.769417"
+    }
+  ]
+}

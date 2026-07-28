@@ -1,0 +1,6 @@
+{
+  "name": "股票查询",
+  "description": "使用akshare库提供股票搜索和实时行情数据查询功能。",
+  "author": "Gemini",
+  "version": "1.0"
+}
