@@ -2,7 +2,8 @@ from fastapi import Request, Depends, HTTPException
 from sqlalchemy.orm import Session
 from dataaccess.database import get_db
 from biziness.model_service import ModelService
-
+from dataaccess.models import LLMModel
+from utils.logger import logger
 
 async def create_model(request: Request, db: Session = Depends(get_db)):
     """创建模型配置"""
@@ -39,9 +40,6 @@ async def test_model_connection(request: Request, model_id: str, db: Session = D
 
 async def get_active_models(request: Request, db: Session = Depends(get_db)):
     """获取可用模型列表（用于Agent配置选择）"""
-    from dataaccess.models import LLMModel
-    from utils.logger import logger
-    
     try:
         # 获取所有模型（不限制状态，让用户可以选择任何已配置的模型）
         models = db.query(LLMModel).all()

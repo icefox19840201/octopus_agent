@@ -72,7 +72,7 @@ async def upload_multiple_files(request: Request, files: list[UploadFile] = File
                 continue
 
             file_ext = Path(file.filename).suffix
-            unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+            unique_filename = file.filename.strip(file_ext)+'_'+f"{uuid.uuid4().hex}{file_ext}"
             rag_file_path = os.path.join(UPLOAD_DIR, 'rags')
             os.makedirs(rag_file_path, exist_ok=True)
             file_path = os.path.join(rag_file_path, unique_filename)
@@ -84,6 +84,7 @@ async def upload_multiple_files(request: Request, files: list[UploadFile] = File
             full_path = str(file_path)
             
             logger.info(f"文件上传成功: {file.filename} -> {full_path}")
+            logger.info('等待解析')
             await producer(full_path)
             results.append({
                 "success": True,

@@ -10,12 +10,15 @@ import base64
 import requests
 import json
 import sys
+from PIL import Image as image
+from io import BytesIO as bytesio
 import os
 from pathlib import Path
 from datetime import datetime
-
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
 # API 配置
-API_KEY = 'sk-JxuWh9wMvX8VTqjMbZJ1Xg48mu3MLiZMNviO7VuVn1O8cYyH'
+API_KEY = ''
 BASE_URL = 'https://aiyiwei.vip/v1'
 
 # 默认输出目录（项目根目录下的 static/images）
@@ -45,15 +48,6 @@ print(f"[DEBUG] 图片输出目录: {DEFAULT_OUTPUT_DIR}", file=sys.stderr)
 def optimize_prompt(description):
     """使用文本模型优化提示词"""
     try:
-        from langchain_openai import ChatOpenAI
-        from langchain_core.prompts import PromptTemplate
-        
-        # llm = ChatOpenAI(
-        #     model_name="gpt-4o-mini",
-        #     temperature=0.7,
-        #     api_key=API_KEY,
-        #     base_url=BASE_URL
-        # )
 
         llm = ChatOpenAI(
             model_name="gpt-4o-mini",
@@ -137,11 +131,8 @@ def generate_image(description, size="2K", output_dir=None, optimize=True, retur
             
             # 使用PIL检查并调整图片尺寸
             try:
-                from PIL import Image
-                from io import BytesIO
-                
                 # 从字节加载图片
-                img = Image.open(BytesIO(image_bytes))
+                img = image.open(bytesio(image_bytes))
                 original_size = img.size
                 print(f"API返回图片尺寸: {original_size}", file=sys.stderr)
                 
@@ -152,9 +143,9 @@ def generate_image(description, size="2K", output_dir=None, optimize=True, retur
                 # 如果尺寸不匹配，强制调整
                 if img.size != target_size:
                     print(f"尺寸不匹配，强制调整为: {target_size}", file=sys.stderr)
-                    img = img.resize(target_size, Image.Resampling.LANCZOS)
+                    img = img.resize(target_size, image.Resampling.LANCZOS)
                     # 转换回字节
-                    buffer = BytesIO()
+                    buffer = bytesio()
                     img.save(buffer, format='PNG')
                     image_bytes = buffer.getvalue()
                     print(f"图片已调整为: {img.size}", file=sys.stderr)
@@ -212,10 +203,7 @@ def generate_image(description, size="2K", output_dir=None, optimize=True, retur
             
             # 使用PIL检查并调整图片尺寸
             try:
-                from PIL import Image
-                from io import BytesIO
-                
-                img = Image.open(BytesIO(image_bytes))
+                img = image.open(bytesio(image_bytes))
                 original_size = img.size
                 print(f"API返回图片尺寸: {original_size}", file=sys.stderr)
                 
@@ -226,8 +214,8 @@ def generate_image(description, size="2K", output_dir=None, optimize=True, retur
                 # 如果尺寸不匹配，强制调整
                 if img.size != target_size:
                     print(f"尺寸不匹配，强制调整为: {target_size}", file=sys.stderr)
-                    img = img.resize(target_size, Image.Resampling.LANCZOS)
-                    buffer = BytesIO()
+                    img = img.resize(target_size, image.Resampling.LANCZOS)
+                    buffer = bytesio()
                     img.save(buffer, format='PNG')
                     image_bytes = buffer.getvalue()
                     image_base64 = base64.b64encode(image_bytes).decode('utf-8')

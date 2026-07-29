@@ -73,7 +73,7 @@ sys_router.add_api_route('/chat/history', get_chat_history, methods=["GET"], tag
 
 # 文件上传接口
 sys_router.add_api_route('/upload', upload_file, methods=["POST"], tags=["文件上传"], description="上传单个文件")
-sys_router.add_api_route('/upload/batch', upload_multiple_files, methods=["POST"], tags=["文件上传"], description="批量上传文件")
+sys_router.add_api_route('/upload/batch', upload_multiple_files, methods=["POST"], tags=["文件上传"], description="批量上传文件，用于知识库文档上传")
 
 # 权限管理路由 
 sys_router.add_api_route('/users', user_create, methods=["POST"], tags=["用户管理"], description="创建用户")

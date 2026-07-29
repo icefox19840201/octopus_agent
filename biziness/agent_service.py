@@ -21,45 +21,33 @@ from .llm import get_deepagent_response_with_stream,get_deepagent_response_sync,
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from dataaccess.mcp_repo import MCPRepo
 from dataaccess.agent_repo import AgentRepo as RawAgentRepo
-# 可选的RedisSaver导入
-try:
-    from langgraph.checkpoint.redis import RedisSaver
-    from langgraph.checkpoint.redis.jsonplus_redis import JsonPlusRedisSerializer
-
-    # 修复 JsonPlusRedisSerializer 缺少 _encode_constructor_args 方法的问题
-    if not hasattr(JsonPlusRedisSerializer, '_encode_constructor_args'):
-        def _encode_constructor_args(self, type_obj, args=None, kwargs=None):
-            """编码构造函数参数"""
-            result = {"lc": 2, "type": "constructor", "id": [type_obj.__module__, type_obj.__name__]}
-            if args:
-                result["args"] = args
-            if kwargs:
-                result["kwargs"] = kwargs
-            return result
-        JsonPlusRedisSerializer._encode_constructor_args = _encode_constructor_args
-
-    _redis_saver_available = True
-except ImportError:
-    _redis_saver_available = False
-    RedisSaver = None
+from langgraph.checkpoint.redis import RedisSaver, AsyncRedisSaver
 
 _checkpointer = None
+_async_checkpointer = None
 
 def _init_checkpointer():
     global _checkpointer
     if _checkpointer is None:
-        if _redis_saver_available and RedisSaver:
-            try:
-                # 使用Redis URL初始化，并调用setup()
-                _checkpointer = RedisSaver(redis_uri)
-                _checkpointer.setup()
-                logger.info("RedisSaver 初始化成功")
-            except Exception as e:
-                logger.exception(f"RedisSaver 初始化失败: {e}")
-                _checkpointer = None
-        else:
-            logger.warning("RedisSaver不可用，记忆功能将被禁用")
+        try:
+            _checkpointer = RedisSaver(redis_uri)
+            _checkpointer.setup()
+            logger.info("RedisSaver 初始化成功")
+        except Exception as e:
+            logger.exception(f"RedisSaver 初始化失败: {e}")
             _checkpointer = None
+
+
+async def _init_async_checkpointer():
+    global _async_checkpointer
+    if _async_checkpointer is None:
+        try:
+            _async_checkpointer = AsyncRedisSaver(redis_uri)
+            await _async_checkpointer.setup()
+            logger.info("AsyncRedisSaver 初始化成功")
+        except Exception as e:
+            logger.exception(f"AsyncRedisSaver 初始化失败: {e}")
+            _async_checkpointer = None
 
 
 class AgentService:
@@ -876,11 +864,11 @@ class AgentService:
                 system_prompt = prompt_info.get("content")
                 logger.info(f"从Agent配置获取提示词: {prompt_info.get('name', '未命名')}")
 
-        _init_checkpointer()
-        checkpointer = _checkpointer if enable_memory else None
+        await _init_async_checkpointer()
+        checkpointer = _async_checkpointer if enable_memory else None
         
         if enable_memory:
-            logger.info(f"记忆功能已启用，使用 Redis checkpoint: conversation={conversation}")
+            logger.info(f"记忆功能已启用，使用异步 Redis checkpoint: conversation={conversation}")
         else:
             logger.info(f"记忆功能已禁用，不使用 checkpoint: conversation={conversation}")
 
