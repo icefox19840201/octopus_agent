@@ -67,6 +67,7 @@ langchain-google-genai==4.3.2
 langchain-mcp-adapters==0.3.1
 langchain-openai==1.4.1
 langchain-protocol==0.0.18
+langchain-text-splitters==1.1.2
 langfuse==4.14.2
 langgraph==1.2.10
 langgraph-checkpoint==4.1.1
