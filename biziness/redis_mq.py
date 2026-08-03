@@ -60,7 +60,6 @@ async def consumer():
             with open(local_file_path, 'wb') as f:
                 f.write(response.content)
             doc_file_path = local_file_path
-            print("上传的文件=====》", doc_file_path)
             RagService.know2db(doc_file_path)
             os.remove(local_file_path)
 
