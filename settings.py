@@ -58,4 +58,8 @@ minio_remote_addr='127.0.0.1:9100'
 mino_access_key = 'admin'
 minio_secret_key = 'Admin@123456'
 minio_bucket_name = 'rag'
+#从minio中下载的文件存放的文件中径
+rag_download_temp_dir=os.path.join(uploads_dir_path,'rags')
+#上传文件的类型
+upload_file_type=['doc','docx','ppt','pptx','xls','xlsx','pdf','txt','md','wav','mp3']
 #==============rag配置结束===================

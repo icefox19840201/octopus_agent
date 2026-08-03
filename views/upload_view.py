@@ -12,7 +12,7 @@ from minio import Minio
 from minio.error import S3Error
 import io
 # 确保上传目录存在
-UPLOAD_DIR = Path(settings.uploads_dir_path)
+UPLOAD_DIR = Path(os.path.join(settings.uploads_dir_path,'analysis_report'))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -34,6 +34,7 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
         # 生成唯一文件名
         file_ext = Path(file.filename).suffix
         unique_filename = f"{uuid.uuid4().hex}{file_ext}"
+
         file_path = UPLOAD_DIR / unique_filename
 
         # 保存文件
@@ -75,6 +76,7 @@ async def upload_multiple_files(request: Request, files: list[UploadFile] = File
                 results.append({"success": False, "message": "文件名不能为空", "filename": None})
                 continue
             file_ext = Path(file.filename).suffix
+            print('扩展名{}'.format(file_ext))
             unique_filename = file.filename.strip(file_ext)+'_'+f"{uuid.uuid4().hex}{file_ext}"
             contents = await file.read()
             logger.info('等待解析')
