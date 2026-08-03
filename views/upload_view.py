@@ -1,5 +1,6 @@
 import os
 import uuid
+from datetime import timedelta
 from pathlib import Path
 from fastapi import Request, UploadFile, File, HTTPException
 from fastapi.responses import JSONResponse
@@ -7,6 +8,9 @@ from utils.auth_decorator import require_auth
 from utils.logger import logger
 import settings
 from biziness.redis_mq import producer
+from minio import Minio
+from minio.error import S3Error
+import io
 # 确保上传目录存在
 UPLOAD_DIR = Path(settings.uploads_dir_path)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -70,27 +74,42 @@ async def upload_multiple_files(request: Request, files: list[UploadFile] = File
             if not file.filename:
                 results.append({"success": False, "message": "文件名不能为空", "filename": None})
                 continue
-
             file_ext = Path(file.filename).suffix
             unique_filename = file.filename.strip(file_ext)+'_'+f"{uuid.uuid4().hex}{file_ext}"
-            rag_file_path = os.path.join(UPLOAD_DIR, 'rags')
-            os.makedirs(rag_file_path, exist_ok=True)
-            file_path = os.path.join(rag_file_path, unique_filename)
-
             contents = await file.read()
-            with open(file_path, "wb") as f:
-                f.write(contents)
-
-            full_path = str(file_path)
-            
-            logger.info(f"文件上传成功: {file.filename} -> {full_path}")
             logger.info('等待解析')
-            await producer(full_path)
+            #上传到minio
+            minio_client=Minio(
+                endpoint=settings.minio_remote_addr,
+                access_key=settings.mino_access_key,
+                secret_key=settings.minio_secret_key,
+                secure=False
+            )
+            bucket_name=settings.minio_bucket_name
+            if not minio_client.bucket_exists(bucket_name):
+                minio_client.make_bucket(bucket_name)
+
+            public_read_policy = (
+                '{"Version": "2012-10-17", "Statement": [{"Effect": "Allow", '
+                '"Principal": "*", "Action": ["s3:GetObject"], '
+                '"Resource": ["arn:aws:s3:::%s/*"]}]}' % bucket_name
+            )
+            minio_client.set_bucket_policy(bucket_name, public_read_policy)
+            data=io.BytesIO(contents)
+            minio_client.put_object(
+                bucket_name=bucket_name,
+                object_name=unique_filename,
+                data=data,
+                length=len(contents)
+            )
+            download_url=f'http://{settings.minio_remote_addr}/rag/{unique_filename}'
+            logger.info(f'文件下载url: {download_url}')
+            await producer(download_url)
             results.append({
                 "success": True,
                 "message": "上传成功",
                 "filename": file.filename,
-                "path": full_path,
+                "path": download_url,
                 "size": len(contents)
             })
 

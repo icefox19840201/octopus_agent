@@ -15,6 +15,7 @@ DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_POR
 JWT_SECRET_KEY = "7s9G2kP8zQxL5nBvR7tFdSjHm2cKpAqW1eYrUiO4sDfGhJkLzXcVbNm6"
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = 8
+
 #SessionMiddleware配置
 SECRET_KEY = "7s9G2kP8zQxL5nBvR7tF1eYrUiO4sDfGhJkLzXcVbNm6"
 #redis配置
@@ -45,3 +46,16 @@ redis_mq_port=6379
 redis_mq_db=1
 redis_mq_decode_responses=True
 #===============redis mq配置结束
+
+#=============rag配置=======================
+#mineru模型路径
+mineru_model_path = os.path.join(r"E:\bigmodel\modelscope_model",'mineru')
+#mineru的输出中路径
+out_dir=os.path.join(os.path.dirname(__file__),'rag_output')
+os.makedirs(out_dir,exist_ok=True)
+#minio配置
+minio_remote_addr='127.0.0.1:9100'
+mino_access_key = 'admin'
+minio_secret_key = 'Admin@123456'
+minio_bucket_name = 'rag'
+#==============rag配置结束===================

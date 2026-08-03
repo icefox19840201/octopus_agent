@@ -27,7 +27,7 @@ load_dotenv('.env')
 langfuse_handler = CallbackHandler()
 # 创建 Langfuse 客户端（用于 flush）
 langfuse = Langfuse( environment="local",release="langfuse-auto-trace-test",debug=False)
-langfuse.auth_check()
+#langfuse.auth_check()
 
 
 class _FilteredChatModel(BaseChatModel):
