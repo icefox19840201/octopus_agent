@@ -531,7 +531,7 @@ createApp({
             mcp: 'MCP管理', models: '模型管理', permission: '权限管控',
             rag: '知识库管理'
         };
-        const pageTitle = computed(() => pageTitles[currentPage.value] || 'Skill Agent');
+        const pageTitle = computed(() => pageTitles[currentPage.value] || 'octopus_agent');
 
         // 根据菜单权限生成页面标题映射
         const dynamicPageTitles = computed(() => {
@@ -3287,7 +3287,7 @@ createApp({
         <div class="login-box">
           <div class="login-header">
             <svg class="icon icon-xl"><use href="#icon-robot"/></svg>
-            <h1>Skill Agent</h1>
+            <h1>octopus_agent</h1>
             <p>智能体管理平台</p>
           </div>
           <form class="login-form" @submit.prevent="handleLogin">
@@ -3354,7 +3354,7 @@ createApp({
         <aside class="sidebar" :class="{ open: sidebarOpen }">
           <div class="logo">
             <svg class="icon icon-xl"><use href="#icon-robot"/></svg>
-            <span>Skill Agent</span>
+            <span>octopus_agent</span>
           </div>
           <nav class="nav-menu">
             <a v-for="menu in userMenus" :key="menu.id" href="#" class="nav-item" :class="{ active: currentPage===menu.path }" @click.prevent="switchPage(menu.path)">
