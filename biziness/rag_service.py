@@ -9,24 +9,24 @@ import os
 import re
 class RagService:
 
-    @staticmethod
-    def know2db(filepath: str):
+    @classmethod
+    def know2db(cls,filepath: str):
         #文件扩展名
         file_ex_name_with_mineru=['.doc','.docx','.ppt','.pptx','.xls','.xlsx','.pdf']
         file_ex_name_without_mineru=['.txt','.md']
         file_ex_with_audio=['wav','mp3']
         file_ex=Path(filepath).suffix
         if file_ex in file_ex_name_with_mineru or file_ex in file_ex_name_without_mineru:
-            markdown_path=RagService.docs2_markdown(filepath)
-            chunks=RagService.split_markdown_file(markdown_path,800,200,True)
+            markdown_path=cls.docs2_markdown(filepath)
+            chunks=cls.split_markdown_file(markdown_path,800,200,True)
             for i, chunk in enumerate(chunks):
                 print(f"\n========== Chunk {i + 1} ==========\n")
                 print(chunk.page_content)
                 print("\n")
         elif file_ex in file_ex_with_audio:
             pass
-    @staticmethod
-    def docs2_markdown(doc_path: str):
+    @classmethod
+    def docs2_markdown(cls,doc_path: str):
         '''
         将文档转为markdown文档（word/excel/pdf/ppt）
         '''
@@ -50,36 +50,30 @@ class RagService:
         markdown_path = str(result_root / f"{doc_obj.stem}.md")
         logger.info('markdown_path===={}'.format(markdown_path))
         return markdown_path
-    @staticmethod
-    def audio2text(markdown_path: str):
+
+    @classmethod
+    def audio2text(cls,markdown_path: str):
         '''
         音频转文本
         '''
         pass
-    @staticmethod
-    def chunkdocs(doc):
-        '''
-        文档切片
-        '''
-        #对文档中的图片提取上传到minio中，在文档中引用
-        #切片过程保留表格完整性
-        logger.info('进入文档切片流程')
 
 
-    @staticmethod
-    def embeddingdoc2db(doc):
+
+    @classmethod
+    def embeddingdoc2db(cls,doc):
         pass
 
-    @staticmethod
-    def _remove_image_references(text: str) -> str:
+    @classmethod
+    def _remove_image_references(cls,text: str) -> str:
         """去除 Markdown 图片引用，如 ``![alt](images/xxx.jpg)``。
         Markdown 图片语法：![可选描述](图片路径)
 
         """
         return re.sub(r"!\[[^\]]*\]\([^)]+\)", "", text)
 
-    @staticmethod
-    def _extract_html_tables(text: str) -> tuple[List[str], str]:
+    @classmethod
+    def _extract_html_tables(cls,text: str) -> tuple[List[str], str]:
         """提取 HTML ``<table>...</table>`` 表格，返回 (表格列表, 替换后的文本)。
            提取出的表格会用 ``__TABLE_BLOCK_{idx}__`` 占位符代替，
            保证后续切分步骤不会在表格中间断开。
@@ -93,8 +87,8 @@ class RagService:
         replaced = pattern.sub(replacer, text)
         return tables, replaced
 
-    @staticmethod
-    def _extract_markdown_tables(text: str) -> tuple[List[str], str]:
+    @classmethod
+    def _extract_markdown_tables(cls,text: str) -> tuple[List[str], str]:
         """提取 Markdown ``|`` 表格，返回 (表格列表, 替换后的文本)。
 
         识别规则：
@@ -132,16 +126,16 @@ class RagService:
 
         return tables, "".join(output)
 
-    @staticmethod
-    def _extract_tables(text: str) -> tuple[List[str], str]:
+    @classmethod
+    def _extract_tables(cls,text: str) -> tuple[List[str], str]:
         """提取文本中的所有表格（HTML 表格优先，再识别 Markdown 表格）。"""
         # 先提取 HTML 表格，避免 HTML 表格内部出现 | 字符时被误判为 Markdown 表格
-        html_tables, text_after_html = RagService._extract_html_tables(text)
+        html_tables, text_after_html = cls._extract_html_tables(text)
         # 再提取 Markdown 表格
-        md_tables, text_after_md = RagService._extract_markdown_tables(text_after_html)
+        md_tables, text_after_md = cls._extract_markdown_tables(text_after_html)
         return html_tables + md_tables, text_after_md
-    @staticmethod
-    def split_documents_preserve_tables(
+    @classmethod
+    def split_documents_preserve_tables(cls,
             text: str,
             chunk_size: int = 800,
             chunk_overlap: int = 100,
@@ -170,10 +164,10 @@ class RagService:
         """
         # 步骤 1：按需去除图片引用
         if remove_images:
-            text = RagService._remove_image_references(text)
+            text = cls._remove_image_references(text)
 
         # 步骤 2：提取表格并用占位符替换，防止表格被截断
-        tables, placeholder_text = RagService._extract_tables(text)
+        tables, placeholder_text = cls._extract_tables(text)
 
         # 步骤 3：使用 LangChain 递归字符切分器切分非表格文本
         if separators is None:
@@ -203,8 +197,8 @@ class RagService:
 
         return result
 
-    @staticmethod
-    def split_markdown_file(
+    @classmethod
+    def split_markdown_file(cls,
             markdown_path: str,
             chunk_size: int = 800,
             chunk_overlap: int = 100,
@@ -224,7 +218,7 @@ class RagService:
             切分后的 ``Document`` 列表。
         """
         text = Path(markdown_path).read_text(encoding="utf-8")
-        return RagService.split_documents_preserve_tables(
+        return cls.split_documents_preserve_tables(
             text,
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
