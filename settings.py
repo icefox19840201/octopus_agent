@@ -62,4 +62,6 @@ minio_bucket_name = 'rag'
 rag_download_temp_dir=os.path.join(uploads_dir_path,'rags')
 #上传文件的类型
 upload_file_type=['doc','docx','ppt','pptx','xls','xlsx','pdf','txt','md','wav','mp3']
+#调用mineru的并发处理数
+CONSUMER_THREAD_COUNT = 5
 #==============rag配置结束===================
