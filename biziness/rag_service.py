@@ -102,6 +102,7 @@ class RagService:
             user=settings.MILVUS_USER,
             password=settings.DB_PASSWORD,
             collection_name=collection_name,
+            token=f'{settings.MILVUS_USER}:{settings.DB_PASSWORD}@rag',
             dim=settings.VECTOR_DIM,
             overwrite=True,
             index_config={
