@@ -39,10 +39,10 @@ async def lifespan(app: FastAPI):
     
     threads = []
     for i in range(CONSUMER_THREAD_COUNT):
-        # t = threading.Thread(target=run_consumer_in_thread, args=(i,), daemon=True)
-        # t.start()
-        p=Process(target=run_consumer_in_thread, args=(i,), daemon=True)
-        p.start()
+        t = threading.Thread(target=run_consumer_in_thread, args=(i,), daemon=True)
+        t.start()
+        # p=Process(target=run_consumer_in_thread, args=(i,), daemon=True)
+        # p.start()
         # threads.append(t)
     
     print(f'[lifespan] {CONSUMER_THREAD_COUNT} 个消费者线程已启动')

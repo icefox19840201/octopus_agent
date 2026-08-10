@@ -1,5 +1,4 @@
 import os
-from redis import Redis
 #模板路径
 template_dir=os.path.join(os.path.dirname(__file__),"templates")
 
@@ -38,6 +37,10 @@ os.makedirs(BM25_INDEX_DIR,exist_ok=True)
 MILVUS_URI = "http://localhost:19530"
 MILVUS_USER = "icefox"
 MILVUS_PASSWORD = "Pass@word1984"
+#向量维度
+VECTOR_DIM = 1024
+#embedding模型
+EMBEDDING_MODEL = r"E:\bigmodel\huggingface_model\embedding\bge-large-zh-v1.5"
 
 #===============redis mq配置
 redis_mq_queue_key = "kb_upload_queue"
