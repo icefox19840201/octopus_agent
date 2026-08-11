@@ -1,5 +1,3 @@
-from pymilvus import DataType
-
 from utils.logger import logger
 from typing import List,Optional
 from pathlib import Path
@@ -15,6 +13,7 @@ from llama_index.llms.openai import OpenAI
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 #pip install llama-index-retrievers-bm25
+from pymilvus import DataType
 from llama_index.retrievers.bm25 import BM25Retriever
 #pip install sentence-transformers torch torchvision torchaudio
 from sentence_transformers import CrossEncoder
@@ -26,24 +25,59 @@ import uuid
 class RagService:
 
     @classmethod
-    def know2db(cls,filepath: str,download_url:str):
-        #文件扩展名
-        file_ex_name_with_mineru=['.doc','.docx','.ppt','.pptx','.xls','.xlsx','.pdf']
-        file_ex_name_without_mineru=['.txt','.md']
-        file_ex_with_audio=['wav','mp3']
-        file_ex=Path(filepath).suffix
-        if file_ex in file_ex_name_with_mineru or file_ex in file_ex_name_without_mineru:
-            markdown_path=cls.docs2_markdown(filepath)
-            nodes=cls.split_markdown_file(markdown_path,800,200,True,{'source':download_url})
-            print('打印nodes')
-            for item in nodes:
-                print(item.text)
-            print(nodes)
+    def know2db(cls, filepath: str, download_url: str):
+        """
+        将文档转换为向量并存储到数据库
+        
+        Args:
+            filepath: 文档文件路径
+            download_url: 文档下载地址
+            doc_id: 文档唯一标识（必须传入）
+            
+        Returns:
 
+        """
+        # 文件扩展名
+        file_ex_name_with_mineru = ['.doc', '.docx', '.ppt', '.pptx', '.xls', '.xlsx', '.pdf']
+        file_ex_name_without_mineru = ['.txt', '.md']
+        file_ex_with_audio = ['wav', 'mp3']
+        file_ex = Path(filepath).suffix
+        doc_id = str(uuid.uuid4())
+
+        if file_ex in file_ex_name_with_mineru or file_ex in file_ex_name_without_mineru:
+            markdown_path = cls.docs2_markdown(filepath)
+            
+            # 传递完整的 metadata，包括 category 和 doc_id
+            metadata = {
+                'source': download_url,
+                'doc_id': doc_id,
+                'file_name': Path(filepath).name,
+                'file_type': file_ex
+            }
+            
+            logger.info(f'开始切分文档: {Path(filepath).name}')
+            logger.info(f'  - source: {download_url}')
+            
+            nodes = cls.split_markdown_file(
+                markdown_path, 
+                chunk_size=800, 
+                chunk_overlap=200, 
+                remove_images=True, 
+                metadata=metadata
+            )
+            
+            logger.info(f'切分完成，生成 {len(nodes)} 个节点')
+            logger.info(f'开始向量化并入库...')
+            
             cls.embeddingdoc2db(nodes)
+            logger.info('入库完成...')
 
         elif file_ex in file_ex_with_audio:
+            logger.warning(f'音频文件暂不支持: {filepath}')
             pass
+        else:
+            logger.error(f'不支持的文件类型: {file_ex}')
+            return None
     @classmethod
     def docs2_markdown(cls,doc_path: str):
         '''
@@ -88,9 +122,10 @@ class RagService:
 
 
     @classmethod
-    def embeddingdoc2db(cls,node,collection_name='test'):
+    def embeddingdoc2db(cls, node, collection_name='test'):
         '''
-        文档入库
+        文档入库 - 确保 category 和其他自定义字段作为独立标量字段
+        注意：doc_id 字段已由 MilvusVectorStore 自动创建，不需要在 scalar_field_names 中重复定义
         '''
         logger.info('准备入库')
         embed_model = HuggingFaceEmbedding(
@@ -98,45 +133,59 @@ class RagService:
             device="cpu",
             normalize=True
         )
-        llamaindex_settings.Settings.embed_model=embed_model
+        llamaindex_settings.Settings.embed_model = embed_model
+
         vector_store = MilvusVectorStore(
             uri=settings.MILVUS_URI,
             collection_name=collection_name,
             dim=settings.VECTOR_DIM,
             overwrite=True,
+
+            # 向量索引配置
             index_config={
                 "index_type": "HNSW",
                 "metric_type": "COSINE",
                 "params": {"M": 16, "efConstruction": 200}
             },
+            
+            # 搜索配置
             search_config={
                 "metric_type": "COSINE",
                 "params": {"ef": 64}
             },
-            scalar_field_indexes=[
-                {"field_name": "category", "index_type": "Trie", "index_name": "category_idx"},
-                {"field_name": "doc_id", "index_type": "Trie", "index_name": "doc_id_idx"}
+
+            scalar_field_names=["file_name", "file_type", "source"],
+            scalar_field_types=[
+                DataType.VARCHAR,  # file_name
+                DataType.VARCHAR,  # file_type
+                DataType.VARCHAR   # source
             ],
+            output_fields=["doc_id", "file_name", "file_type", "source"],
             user=settings.MILVUS_USER,
             password=settings.DB_PASSWORD,
             db_name=settings.rag_db_name
         )
-        storage_content=StorageContext.from_defaults(vector_store=vector_store)
-        vector_index=VectorStoreIndex(nodes=node,storage_context=storage_content)
-        os.makedirs(settings.INDEX_DIR,exist_ok=True)
+        
+        storage_content = StorageContext.from_defaults(vector_store=vector_store)
+        vector_index = VectorStoreIndex(nodes=node, storage_context=storage_content)
+        
+        os.makedirs(settings.INDEX_DIR, exist_ok=True)
         vector_index.storage_context.persist(settings.EMBEDINDEX_DIR)
+        
         print(f"✓ Milvus 向量索引创建成功: {collection_name}")
         print(f"  - 向量维度: {settings.VECTOR_DIM}")
         print(f"  - 节点数量: {len(node)}")
         print(f"  - 索引类型: HNSW (COSINE)")
-        #bm25索引创建
+
+        
+        # bm25索引创建
         print('创建bm25索引')
-        bm25_retriever=BM25Retriever.from_defaults(
+        bm25_retriever = BM25Retriever.from_defaults(
             nodes=node,
             similarity_top_k=20,
             verbose=False
         )
-        os.makedirs(settings.BM25_INDEX_DIR,exist_ok=True)
+        os.makedirs(settings.BM25_INDEX_DIR, exist_ok=True)
         bm25_retriever.persist(settings.BM25_INDEX_DIR)
         print('bm25索引创建完成')
 
@@ -224,6 +273,7 @@ class RagService:
         # 再提取 Markdown 表格
         md_tables, text_after_md = cls._extract_markdown_tables(text_after_html)
         return html_tables + md_tables, text_after_md
+
     @classmethod
     def split_documents_preserve_tables(cls,
             text: str,
@@ -242,7 +292,7 @@ class RagService:
             chunk_size: 非表格文本的目标块大小（表格本身会作为整体保留，可能超出此大小）。
             chunk_overlap: 块间重叠字符数。
             separators: 切分分隔符，默认按段落、句子、词语逐级切分。
-            metadata: 附加到每个 Document 的元数据。
+            metadata: 附加到每个 Document 的元数据（包含 doc_id 等）。
             remove_images: 是否去除 Markdown 图片引用，默认为 True。
 
         Returns:
@@ -266,7 +316,7 @@ class RagService:
             length_function=len,
             is_separator_regex=False,
         )
-        
+        print(f'metadata的数据----->{metadata}')
         docs = splitter.create_documents([placeholder_text], metadatas=[metadata or {}])
 
         nodes = []
@@ -281,17 +331,25 @@ class RagService:
             # 表格还原后清除图片引用（表格内部可能包含图片）
             if remove_images:
                 content = cls._remove_image_references(content)
+
+            node_metadata = doc.metadata or {}
+            doc_id_value = node_metadata.get('doc_id')
+            print(f'node_metadata的数据---->{node_metadata}')
+            print(f'node_metadata数据中的doc_id的值------》{doc_id_value}')
             
-            # 直接创建 TextNode，避免二次切分
+            from llama_index.core.schema import RelatedNodeInfo, NodeRelationship
+            
             node = TextNode(
                 text=content,
-                metadata=doc.metadata or {},
-                id_=f"node_{idx}"
+                metadata=node_metadata
             )
+            # 通过 relationships 设置 ref_doc_id
+            if doc_id_value:
+                node.relationships[NodeRelationship.SOURCE] = RelatedNodeInfo(node_id=doc_id_value)
+            print(f'创建node后的relationships: {node.relationships}')
+            
             nodes.append(node)
-        
-        print(f'切分后文档数量: {len(docs)}')
-        print(f'生成的 nodes 数量: {len(nodes)}')
+
         return nodes
 
     @classmethod

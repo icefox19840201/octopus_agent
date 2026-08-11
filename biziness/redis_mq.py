@@ -60,7 +60,7 @@ async def consumer():
             with open(local_file_path, 'wb') as f:
                 f.write(response.content)
             doc_file_path = local_file_path
-            RagService.know2db(doc_file_path,encoded_url)
+            RagService.know2db(doc_file_path, encoded_url)
             os.remove(local_file_path)
 
         except:
