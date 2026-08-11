@@ -119,7 +119,7 @@ class RagService:
             ],
             user=settings.MILVUS_USER,
             password=settings.DB_PASSWORD,
-            db_name="rag"
+            db_name=settings.rag_db_name
         )
         storage_content=StorageContext.from_defaults(vector_store=vector_store)
         vector_index=VectorStoreIndex(nodes=node,storage_context=storage_content)
