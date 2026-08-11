@@ -1,3 +1,5 @@
+from pymilvus import DataType
+
 from utils.logger import logger
 from typing import List,Optional
 from pathlib import Path
@@ -99,10 +101,7 @@ class RagService:
         llamaindex_settings.Settings.embed_model=embed_model
         vector_store = MilvusVectorStore(
             uri=settings.MILVUS_URI,
-            user=settings.MILVUS_USER,
-            password=settings.DB_PASSWORD,
             collection_name=collection_name,
-            token=f'{settings.MILVUS_USER}:{settings.DB_PASSWORD}@rag',
             dim=settings.VECTOR_DIM,
             overwrite=True,
             index_config={
@@ -117,7 +116,10 @@ class RagService:
             scalar_field_indexes=[
                 {"field_name": "category", "index_type": "Trie", "index_name": "category_idx"},
                 {"field_name": "doc_id", "index_type": "Trie", "index_name": "doc_id_idx"}
-            ]
+            ],
+            user=settings.MILVUS_USER,
+            password=settings.DB_PASSWORD,
+            db_name="rag"
         )
         storage_content=StorageContext.from_defaults(vector_store=vector_store)
         vector_index=VectorStoreIndex(nodes=node,storage_context=storage_content)
