@@ -1,0 +1,31 @@
+services:
+  postgres:
+    image: postgres:15        # 指定具体版本，避免 latest 标签的问题
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: icefox               # 数据库用户名
+      POSTGRES_PASSWORD: 123456           # 数据库密码
+      POSTGRES_DB: postgres               # 初始数据库名
+      TZ: Asia/Shanghai                   # 设置时区
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"  # 配置 UTF8 字符集
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data   # 持久化数据
+    restart: unless-stopped               # 非手动停止则自动重启
+    healthcheck:                          # 修复健康检查用户名
+      test: ["CMD", "pg_isready", "-U", "icefox", "-d", "postgres"]  # 匹配配置的用户名和数据库名
+      interval: 10s                       # 每10秒检查一次
+      timeout: 5s                         # 超时时间5秒
+      retries: 5                          # 重试5次失败则标记不健康
+      start_period: 30s                   # 容器启动后30秒再开始检查（避免启动中误判）
+    command: ["postgres", "-c", "max_connections=200"]  # 调整最大连接数
+    networks:
+      - postgres-network                  # 自定义网络，避免端口冲突
+
+volumes:
+  pgdata:                                  # 数据卷，自动创建
+
+networks:
+  postgres-network:                        # 自定义网络
+    driver: bridge

@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    restart: always
+    ports:
+      - "9100:9000"   # S3 API端口
+      - "9200:9001"   # Web管理控制台
+    environment:
+      # 管理员账号密码，自定义修改！
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: Admin@123456
+      # 时区
+      TZ: Asia/Shanghai
+      # 禁止匿名访问（可选）
+      MINIO_BROWSER_ANONYMOUS: "off"
+    volumes:
+      # 持久化数据目录，修改宿主机路径
+      - ./minio-data:/data
+      # 持久化配置（策略、密钥、用户等）
+      - ./minio-config:/root/.minio
+    command: server /data --console-address ":9001"
+    # 可选：资源限制
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    networks:
+      - minio-net
+
+networks:
+  minio-net:
+    driver: bridge
