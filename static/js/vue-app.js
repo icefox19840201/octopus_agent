@@ -522,6 +522,8 @@ createApp({
         const kbTestQuery = ref('');
         const kbTestResults = ref([]);
         const kbTestLoading = ref(false);
+        const kbFiles = ref([]);
+        const kbFilesLoading = ref(false);
 
         // ========================================
         // 计算属性
@@ -1493,7 +1495,9 @@ createApp({
             kbUploadFiles.value = [];
             kbTestQuery.value = '';
             kbTestResults.value = [];
+            kbFiles.value = [];
             showKbDetailModal.value = true;
+            loadKbFiles(kb.id);
         }
 
         function handleKbFileSelect(e) {
@@ -1549,6 +1553,7 @@ createApp({
                     });
                     const successCount = kbUploadFiles.value.filter(f => f.status === 'success').length;
                     showToast(`成功上传 ${successCount} 个文件`, 'success');
+                    loadKbFiles(currentKb.value.id);
                 } else {
                     pendingFiles.forEach(fileItem => {
                         fileItem.status = 'error';
@@ -1584,6 +1589,33 @@ createApp({
             } finally {
                 kbTestLoading.value = false;
             }
+        }
+
+        async function loadKbFiles(kbId) {
+            kbFilesLoading.value = true;
+            try {
+                const data = await api.get(`/api/knowledge-bases/${kbId}/documents`);
+                if (data.success) {
+                    kbFiles.value = data.data || [];
+                } else {
+                    showToast(data.message || '加载文件列表失败', 'error');
+                }
+            } catch (e) {
+                showToast('加载文件列表失败', 'error');
+            } finally {
+                kbFilesLoading.value = false;
+            }
+        }
+
+        async function deleteKbFile(doc) {
+            if (!confirm(`确定要删除文档「${doc.title}」吗？`)) return;
+            try {
+                const data = await api.del(`/api/knowledge-bases/documents/${doc.id}`);
+                if (data.success) {
+                    showToast('文档已删除', 'success');
+                    loadKbFiles(currentKb.value.id);
+                } else { showToast(data.message || '删除失败', 'error'); }
+            } catch (e) { showToast('网络错误', 'error'); }
         }
 
         function formatFileSize(bytes) {
@@ -3276,6 +3308,7 @@ createApp({
             changeKbPage, changeKbPageSize,
             // 知识库详情
             showKbDetailModal, currentKb, kbDetailTab, kbUploadFiles, kbTestQuery, kbTestResults, kbTestLoading,
+            kbFiles, kbFilesLoading, loadKbFiles, deleteKbFile,
             openKbDetailModal, handleKbFileSelect, removeKbUploadFile, uploadKbFiles, testKbRetrieval, formatFileSize,
         };
     },
@@ -5219,6 +5252,9 @@ createApp({
             <button class="tab-btn" :class="{active:kbDetailTab==='test'}" @click="kbDetailTab='test'">
               <svg class="icon"><use href="#icon-search"/></svg> 命中测试
             </button>
+            <button class="tab-btn" :class="{active:kbDetailTab==='files'}" @click="kbDetailTab='files'">
+              <svg class="icon"><use href="#icon-file"/></svg> 文件列表
+            </button>
           </div>
           <div class="modal-body">
             <!-- 文件上传标签页 -->
@@ -5288,6 +5324,46 @@ createApp({
                   <p class="result-content">{{ result.content }}</p>
                 </div>
               </div>
+            </div>
+            <!-- 文件列表标签页 -->
+            <div v-if="kbDetailTab==='files'" class="kb-files-section">
+              <div v-if="kbFilesLoading" class="kb-files-loading">
+                <svg class="icon icon-spinner spinning"><use href="#icon-spinner"/></svg> 加载中...
+              </div>
+              <div v-else-if="kbFiles.length===0" class="empty-state" style="padding:40px 0">
+                <svg class="icon icon-xl"><use href="#icon-file"/></svg>
+                <h3>暂无文件</h3>
+                <p>切换到"文件上传"标签页上传文档</p>
+              </div>
+              <table v-else class="kb-files-table">
+                <thead>
+                  <tr>
+                    <th>文件名</th>
+                    <th>类型</th>
+                    <th>分块数</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="file in kbFiles" :key="file.id">
+                    <td><strong>{{ file.title }}</strong></td>
+                    <td>{{ file.file_type || '-' }}</td>
+                    <td>{{ file.chunk_count || 0 }}</td>
+                    <td>
+                      <span class="status-dot" :class="file.status || 'active'"></span>
+                      {{ (file.status || 'active')==='active'?'启用':'停用' }}
+                    </td>
+                    <td>{{ file.created_at }}</td>
+                    <td class="action-cell">
+                      <button class="btn btn-sm btn-danger" @click="deleteKbFile(file)">
+                        <svg class="icon"><use href="#icon-trash"/></svg> 删除
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

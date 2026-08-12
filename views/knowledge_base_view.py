@@ -197,12 +197,5 @@ async def delete_document(doc_id: str, authorization: Optional[str] = Header(Non
     except Exception as e:
         logger.error(f"删除文档失败: {e}")
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
-async def docs2_milvusdb(docs_path:Rag_Docs_Path,authorization: Optional[str] = Header(None)):
-    '''
-    文档进行向量化入库
-    :return:
-    '''
-    token = get_token_from_header(authorization)
-    if not token:
-        return JSONResponse({"success": False, "message": "未提供认证token"}, status_code=401)
+
 

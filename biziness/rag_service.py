@@ -213,6 +213,7 @@ class RagService:
         logger.info(f"_remove_image_references: 原长度 {before_len}, 新长度 {len(text)}")
         return text
 
+
     @classmethod
     def _extract_html_tables(cls,text: str) -> tuple[List[str], str]:
         """提取 HTML ``<table>...</table>`` 表格，返回 (表格列表, 替换后的文本)。
@@ -287,16 +288,12 @@ class RagService:
     ) -> List[Document]:
         """对 Markdown / HTML 混排文本进行切割，确保表格完整不被截断。
 
-        Args:
             text: 待切分的文本。
             chunk_size: 非表格文本的目标块大小（表格本身会作为整体保留，可能超出此大小）。
             chunk_overlap: 块间重叠字符数。
             separators: 切分分隔符，默认按段落、句子、词语逐级切分。
             metadata: 附加到每个 Document 的元数据（包含 doc_id 等）。
             remove_images: 是否去除 Markdown 图片引用，默认为 True。
-
-        Returns:
-            切分后的 ``Document`` 列表，每个 Document 中的表格均完整。
         """
 
 
@@ -362,16 +359,11 @@ class RagService:
             **kwargs,
     ) -> List[Document]:
         """读取 Markdown 文件并切分，保留表格完整。
-
-        Args:
             markdown_path: Markdown 文件路径。
-            chunk_size: 块大小，参见 ``split_documents_preserve_tables``。
-            chunk_overlap: 块间重叠，参见 ``split_documents_preserve_tables``。
+            chunk_size: 块大小，
+            chunk_overlap: 块间重叠，
             remove_images: 是否去除图片引用。
-            **kwargs: 其他传递给 ``split_documents_preserve_tables`` 的参数。
 
-        Returns:
-            切分后的 ``Document`` 列表。
         """
         text = Path(markdown_path).read_text(encoding="utf-8")
         base_dir = str(Path(markdown_path).parent)

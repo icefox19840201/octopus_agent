@@ -20,7 +20,7 @@ from views.knowledge_base_view import (
     delete_knowledge_base as kb_delete,
     create_document as doc_create,
     list_documents as doc_list,
-    delete_document as doc_delete, docs2_milvusdb
+    delete_document as doc_delete
 )
 from views.model_view import get_active_models as model_active_list
 from views.dashboard_view import (
@@ -153,5 +153,5 @@ sys_router.add_api_route('/knowledge-bases/{kb_id}', kb_delete, methods=["DELETE
 sys_router.add_api_route('/knowledge-bases/{kb_id}/documents', doc_list, methods=["GET"], tags=["知识库管理"], description="获取文档列表")
 sys_router.add_api_route('/knowledge-bases/documents', doc_create, methods=["POST"], tags=["知识库管理"], description="创建文档")
 sys_router.add_api_route('/knowledge-bases/documents/{doc_id}', doc_delete, methods=["DELETE"], tags=["知识库管理"], description="删除文档")
-sys_router.add_api_route('/knowledge-bases/doc2db',docs2_milvusdb,methods=["POST"],tags=['知识库管理'],description='文档向量化入库')
+
 
