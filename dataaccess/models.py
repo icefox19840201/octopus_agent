@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey, Float, Boolean
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import JSONB
 from dataaccess.database import Base
 
 
@@ -98,6 +99,7 @@ class DepartmentModel(Base):
     mcps = relationship("MCPModel", back_populates="department")
     prompts = relationship("PromptModel", back_populates="department")
     knowledge_bases = relationship("KnowledgeBaseModel", back_populates="department")
+
     created_at = Column(DateTime, nullable=True, default=datetime.now, comment="创建日期")
     updated_at = Column(DateTime, nullable=True, default=datetime.now, onupdate=datetime.now, comment="更新日期")
 
@@ -295,7 +297,7 @@ class KnowledgeBaseModel(Base):
     created_by = Column(String(40), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, comment="创建者用户ID")
     department_id = Column(String(40), ForeignKey("departments.id", ondelete="SET NULL"), nullable=True, comment="所属部门ID")
     status = Column(String(20), nullable=True, default="active", comment="状态：active启用，inactive停用")
-
+    file_path = Column(JSONB,nullable=True,comment='文件上传的访问访问路径')
     # 关系
     creator = relationship("UserModel", back_populates="created_knowledge_bases")
     department = relationship("DepartmentModel", back_populates="knowledge_bases")

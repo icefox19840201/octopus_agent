@@ -1526,6 +1526,7 @@ createApp({
 
             // 构建 FormData，支持多文件批量上传
             const formData = new FormData();
+            formData.append('kb_id', currentKb.value.id);
             pendingFiles.forEach(fileItem => {
                 formData.append('files', fileItem.file);
             });

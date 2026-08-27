@@ -9,6 +9,7 @@ from llama_index.core.schema import TextNode
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.schema import NodeWithScore,QueryBundle
 from llama_index.llms.openai import OpenAI
+from llama_index.core.schema import RelatedNodeInfo, NodeRelationship
 #pip install llama-index-vector-stores-milvus
 from llama_index.vector_stores.milvus import MilvusVectorStore
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -334,7 +335,7 @@ class RagService:
             print(f'node_metadata的数据---->{node_metadata}')
             print(f'node_metadata数据中的doc_id的值------》{doc_id_value}')
             
-            from llama_index.core.schema import RelatedNodeInfo, NodeRelationship
+
             
             node = TextNode(
                 text=content,

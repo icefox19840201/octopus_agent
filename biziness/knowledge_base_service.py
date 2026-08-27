@@ -152,6 +152,39 @@ class KnowledgeBaseService:
             db.close()
 
     @staticmethod
+    def check_knowledge_base_exists(kb_id: str) -> bool:
+        """检查知识库是否存在"""
+        db = KnowledgeBaseService._get_session()
+        try:
+            return KnowledgeBaseRepo.get_by_id(db, kb_id) is not None
+        finally:
+            db.close()
+
+    @staticmethod
+    def update_knowledge_base_file_path(kb_id: str, files: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """更新知识库文件路径（JSON格式，追加方式更新）"""
+        db = KnowledgeBaseService._get_session()
+        try:
+            kb = KnowledgeBaseRepo.get_by_id(db, kb_id)
+            if not kb:
+                return {"success": False, "message": "知识库不存在"}
+
+            # 合并已有的文件记录
+            existing_files = kb.file_path if isinstance(kb.file_path, list) else []
+            new_file_path = existing_files + files
+            kb = KnowledgeBaseRepo.update(db, kb_id, {"file_path": new_file_path})
+            return {
+                "success": True,
+                "data": kb.file_path,
+                "message": "知识库文件路径更新成功"
+            }
+        except Exception as e:
+            logger.error(f"更新知识库文件路径失败: {e}")
+            return {"success": False, "message": f"更新失败: {str(e)}"}
+        finally:
+            db.close()
+
+    @staticmethod
     def create_document(doc_data: Dict[str, Any]) -> Dict[str, Any]:
         """创建文档"""
         db = KnowledgeBaseService._get_session()

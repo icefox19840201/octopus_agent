@@ -200,7 +200,8 @@ class AuthService:
             "username": payload.get("username"),
             "roles": payload.get("roles", []),
             "permissions": payload.get("permissions", []),
-            "email": payload.get("email")
+            "email": payload.get("email"),
+            "department_id": payload.get("department_id")
         }
 
     @staticmethod

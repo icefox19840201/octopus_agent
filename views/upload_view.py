@@ -2,7 +2,8 @@ import os
 import uuid
 from datetime import timedelta
 from pathlib import Path
-from fastapi import Request, UploadFile, File, HTTPException
+from typing import Optional
+from fastapi import Request, UploadFile, File, HTTPException, Form
 from fastapi.responses import JSONResponse
 from utils.auth_decorator import require_auth
 from utils.logger import logger
@@ -11,6 +12,7 @@ from biziness.redis_mq import producer
 from minio import Minio
 from minio.error import S3Error
 import io
+from biziness.knowledge_base_service import KnowledgeBaseService
 # 确保上传目录存在
 UPLOAD_DIR = Path(os.path.join(settings.uploads_dir_path,'analysis_report'))
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -64,12 +66,31 @@ async def upload_file(request: Request, file: UploadFile = File(...)):
 
 
 @require_auth
-async def upload_multiple_files(request: Request, files: list[UploadFile] = File(...)):
+async def upload_multiple_files(
+    request: Request,
+    files: list[UploadFile] = File(...),
+    kb_id: Optional[str] = Form(None, description="知识库ID")
+):
     """
     批量上传文件接口,用于知识库上传文档使用，上传文档后，直接解析文档并入库
     """
     results = []
-    
+    uploaded_files = []  # 存储成功上传的文件信息
+
+    # 校验知识库ID
+    if not kb_id:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "message": "缺少知识库ID参数(kb_id)"}
+        )
+
+    # 验证知识库是否存在（业务层处理）
+    if not KnowledgeBaseService.check_knowledge_base_exists(kb_id):
+        return JSONResponse(
+            status_code=404,
+            content={"success": False, "message": "知识库不存在"}
+        )
+
     for file in files:
         try:
             if not file.filename:
@@ -114,6 +135,12 @@ async def upload_multiple_files(request: Request, files: list[UploadFile] = File
                 "path": download_url,
                 "size": len(contents)
             })
+            # 记录成功上传的文件信息
+            uploaded_files.append({
+                "filename": file.filename,
+                "path": download_url,
+                "size": len(contents)
+            })
 
         except Exception as e:
             logger.exception(f"文件上传失败: {file.filename}")
@@ -122,6 +149,14 @@ async def upload_multiple_files(request: Request, files: list[UploadFile] = File
                 "message": f"上传失败: {str(e)}",
                 "filename": file.filename
             })
+
+    # 有文件上传成功时，通过业务层更新知识库的 file_path 字段（JSON格式，多文件一起更新）
+    if uploaded_files:
+        result = KnowledgeBaseService.update_knowledge_base_file_path(kb_id, uploaded_files)
+        if result["success"]:
+            logger.info(f"知识库 {kb_id} file_path 已更新: {result.get('data')}")
+        else:
+            logger.warning(f"更新知识库 file_path 失败: {result.get('message')}")
 
     return {
         "success": all(r.get("success") for r in results),
