@@ -297,7 +297,6 @@ class RagService:
             remove_images: 是否去除 Markdown 图片引用，默认为 True。
         """
 
-
         # 提取表格并用占位符替换，防止表格被截断
         tables, placeholder_text = cls._extract_tables(text)
 
@@ -334,8 +333,6 @@ class RagService:
             doc_id_value = node_metadata.get('doc_id')
             print(f'node_metadata的数据---->{node_metadata}')
             print(f'node_metadata数据中的doc_id的值------》{doc_id_value}')
-            
-
             
             node = TextNode(
                 text=content,

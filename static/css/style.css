@@ -5708,3 +5708,83 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* 知识库 file_path 文件链接列表 */
+.kb-file-paths {
+    margin-bottom: 16px;
+}
+
+.kb-file-paths-title {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.kb-file-paths-empty {
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 12px 0;
+}
+
+.kb-file-path-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.kb-file-path-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    transition: box-shadow .15s ease, border-color .15s ease, transform .15s ease;
+}
+
+.kb-file-path-item:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, .12);
+    transform: translateY(-1px);
+}
+
+.icon.kb-file-icon {
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    fill: var(--text-secondary);
+}
+
+.icon.kb-file-icon.pdf {
+    fill: #e53935;
+}
+
+.kb-file-link {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.kb-file-link:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
+}
+
+.kb-file-size {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: rgba(0, 0, 0, .05);
+    border-radius: 10px;
+    padding: 2px 8px;
+}

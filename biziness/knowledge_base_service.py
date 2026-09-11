@@ -16,6 +16,8 @@ class KnowledgeBaseService:
     @staticmethod
     def _kb_to_dict(kb: KnowledgeBaseModel) -> Dict[str, Any]:
         """将知识库模型转换为字典"""
+        logger.info('_kb_to_dict')
+
         return {
             "id": kb.id,
             "name": kb.name,
@@ -29,7 +31,8 @@ class KnowledgeBaseService:
             "created_at": kb.created_at.isoformat() if kb.created_at else None,
             "updated_at": kb.updated_at.isoformat() if kb.updated_at else None,
             "creator_name": kb.creator.username if kb.creator else None,
-            "department_name": kb.department.name if kb.department else None
+            "department_name": kb.department.name if kb.department else None,
+            "file_path":kb.file_path if kb.file_path else None
         }
 
     @staticmethod
@@ -91,6 +94,7 @@ class KnowledgeBaseService:
 
             # 检查权限
             is_admin = UserRoleRepo.is_user_admin(db, user_id)
+
             if not is_admin and kb.created_by != user_id:
                 if kb.type == "private":
                     return None

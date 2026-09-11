@@ -522,8 +522,7 @@ createApp({
         const kbTestQuery = ref('');
         const kbTestResults = ref([]);
         const kbTestLoading = ref(false);
-        const kbFiles = ref([]);
-        const kbFilesLoading = ref(false);
+        const kbFilePaths = ref([]); // 知识库 file_path 字段（数据库查询结果）
 
         // ========================================
         // 计算属性
@@ -1495,9 +1494,8 @@ createApp({
             kbUploadFiles.value = [];
             kbTestQuery.value = '';
             kbTestResults.value = [];
-            kbFiles.value = [];
+            kbFilePaths.value = [];
             showKbDetailModal.value = true;
-            loadKbFiles(kb.id);
         }
 
         function handleKbFileSelect(e) {
@@ -1554,7 +1552,16 @@ createApp({
                     });
                     const successCount = kbUploadFiles.value.filter(f => f.status === 'success').length;
                     showToast(`成功上传 ${successCount} 个文件`, 'success');
-                    loadKbFiles(currentKb.value.id);
+                    // 更新当前知识库 file_path，使文件列表能立即展示新上传的文件
+                    const uploadedResults = (data.results || []).filter(r => r.success);
+                    if (uploadedResults.length && currentKb.value) {
+                        const fp = Array.isArray(currentKb.value.file_path) ? currentKb.value.file_path : [];
+                        uploadedResults.forEach(r => {
+                            fp.push({ filename: r.filename, path: r.path, size: r.size });
+                        });
+                        currentKb.value.file_path = fp;
+                        kbFilePaths.value = fp;
+                    }
                 } else {
                     pendingFiles.forEach(fileItem => {
                         fileItem.status = 'error';
@@ -1592,31 +1599,21 @@ createApp({
             }
         }
 
-        async function loadKbFiles(kbId) {
-            kbFilesLoading.value = true;
-            try {
-                const data = await api.get(`/api/knowledge-bases/${kbId}/documents`);
-                if (data.success) {
-                    kbFiles.value = data.data || [];
-                } else {
-                    showToast(data.message || '加载文件列表失败', 'error');
+        async function switchKbDetailTab(tab) {
+            kbDetailTab.value = tab;
+            // 切换到"文件列表"时，从数据库查询知识库 file_path 字段并绑定到页面
+            if (tab === 'files' && currentKb.value) {
+                try {
+                    const data = await api.get(`/api/knowledge-bases/${currentKb.value.id}`);
+                    if (data.success && data.data) {
+                        currentKb.value = data.data;
+                        kbFilePaths.value = Array.isArray(data.data.file_path) ? data.data.file_path : [];
+                    }
+                } catch (e) {
+                    // 获取详情失败时仍用当前数据加载
+                    kbFilePaths.value = Array.isArray(currentKb.value.file_path) ? currentKb.value.file_path : [];
                 }
-            } catch (e) {
-                showToast('加载文件列表失败', 'error');
-            } finally {
-                kbFilesLoading.value = false;
             }
-        }
-
-        async function deleteKbFile(doc) {
-            if (!confirm(`确定要删除文档「${doc.title}」吗？`)) return;
-            try {
-                const data = await api.del(`/api/knowledge-bases/documents/${doc.id}`);
-                if (data.success) {
-                    showToast('文档已删除', 'success');
-                    loadKbFiles(currentKb.value.id);
-                } else { showToast(data.message || '删除失败', 'error'); }
-            } catch (e) { showToast('网络错误', 'error'); }
         }
 
         function formatFileSize(bytes) {
@@ -3309,8 +3306,9 @@ createApp({
             changeKbPage, changeKbPageSize,
             // 知识库详情
             showKbDetailModal, currentKb, kbDetailTab, kbUploadFiles, kbTestQuery, kbTestResults, kbTestLoading,
-            kbFiles, kbFilesLoading, loadKbFiles, deleteKbFile,
+            kbFilePaths,
             openKbDetailModal, handleKbFileSelect, removeKbUploadFile, uploadKbFiles, testKbRetrieval, formatFileSize,
+            switchKbDetailTab,
         };
     },
 
@@ -5247,13 +5245,13 @@ createApp({
             <button class="modal-close" @click="showKbDetailModal=false">&times;</button>
           </div>
           <div class="kb-detail-tabs">
-            <button class="tab-btn" :class="{active:kbDetailTab==='upload'}" @click="kbDetailTab='upload'">
+            <button class="tab-btn" :class="{active:kbDetailTab==='upload'}" @click="switchKbDetailTab('upload')">
               <svg class="icon"><use href="#icon-upload"/></svg> 文件上传
             </button>
-            <button class="tab-btn" :class="{active:kbDetailTab==='test'}" @click="kbDetailTab='test'">
+            <button class="tab-btn" :class="{active:kbDetailTab==='test'}" @click="switchKbDetailTab('test')">
               <svg class="icon"><use href="#icon-search"/></svg> 命中测试
             </button>
-            <button class="tab-btn" :class="{active:kbDetailTab==='files'}" @click="kbDetailTab='files'">
+            <button class="tab-btn" :class="{active:kbDetailTab==='files'}" @click="switchKbDetailTab('files')">
               <svg class="icon"><use href="#icon-file"/></svg> 文件列表
             </button>
           </div>
@@ -5328,43 +5326,20 @@ createApp({
             </div>
             <!-- 文件列表标签页 -->
             <div v-if="kbDetailTab==='files'" class="kb-files-section">
-              <div v-if="kbFilesLoading" class="kb-files-loading">
-                <svg class="icon icon-spinner spinning"><use href="#icon-spinner"/></svg> 加载中...
+              <!-- 知识库 file_path 字段（数据库）文件链接列表 -->
+              <div class="kb-file-paths">
+                <h4 class="kb-file-paths-title">已上传文件</h4>
+                <div v-if="kbFilePaths.length===0" class="kb-file-paths-empty">暂无上传文件</div>
+                <ul v-else class="kb-file-path-list">
+                  <li v-for="(f, idx) in kbFilePaths" :key="idx" class="kb-file-path-item">
+                    <svg class="icon kb-file-icon" :class="{pdf: f.filename && f.filename.toLowerCase().endsWith('.pdf')}">
+                      <use :href="f.filename && f.filename.toLowerCase().endsWith('.pdf') ? '#icon-pdf' : '#icon-file'"/>
+                    </svg>
+                    <a class="kb-file-link" :href="f.path" target="_blank" rel="noopener" :title="f.filename">{{ f.filename }}</a>
+                    <span class="kb-file-size">{{ f.size != null ? formatFileSize(f.size) : '' }}</span>
+                  </li>
+                </ul>
               </div>
-              <div v-else-if="kbFiles.length===0" class="empty-state" style="padding:40px 0">
-                <svg class="icon icon-xl"><use href="#icon-file"/></svg>
-                <h3>暂无文件</h3>
-                <p>切换到"文件上传"标签页上传文档</p>
-              </div>
-              <table v-else class="kb-files-table">
-                <thead>
-                  <tr>
-                    <th>文件名</th>
-                    <th>类型</th>
-                    <th>分块数</th>
-                    <th>状态</th>
-                    <th>创建时间</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="file in kbFiles" :key="file.id">
-                    <td><strong>{{ file.title }}</strong></td>
-                    <td>{{ file.file_type || '-' }}</td>
-                    <td>{{ file.chunk_count || 0 }}</td>
-                    <td>
-                      <span class="status-dot" :class="file.status || 'active'"></span>
-                      {{ (file.status || 'active')==='active'?'启用':'停用' }}
-                    </td>
-                    <td>{{ file.created_at }}</td>
-                    <td class="action-cell">
-                      <button class="btn btn-sm btn-danger" @click="deleteKbFile(file)">
-                        <svg class="icon"><use href="#icon-trash"/></svg> 删除
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
             </div>
           </div>
         </div>
