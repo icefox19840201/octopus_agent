@@ -523,6 +523,8 @@ createApp({
         const kbTestResults = ref([]);
         const kbTestLoading = ref(false);
         const kbFilePaths = ref([]); // 知识库 file_path 字段（数据库查询结果）
+        const kbQueueInfo = ref({ kb_id: null, count: 0, tasks: [] }); // 当前知识库在 redis 中排队中的任务
+        const kbQueueLoading = ref(false);
 
         // ========================================
         // 计算属性
@@ -1495,7 +1497,60 @@ createApp({
             kbTestQuery.value = '';
             kbTestResults.value = [];
             kbFilePaths.value = [];
+            kbQueueInfo.value = { kb_id: kb.id, count: 0, tasks: [] };
             showKbDetailModal.value = true;
+            // 打开知识库详情时，默认加载当前知识库的排队信息
+            loadKbQueue();
+        }
+
+        // 获取当前知识库在 redis 队列中排队中的任务信息
+        async function loadKbQueue() {
+            if (!currentKb.value || !currentKb.value.id) {
+                kbQueueInfo.value = { kb_id: null, count: 0, tasks: [] };
+                return;
+            }
+            const kbId = currentKb.value.id;
+            kbQueueLoading.value = true;
+            try {
+                const data = await api.get(`/api/knowledge-bases/${kbId}/queue`);
+                // 防止切换知识库后旧请求返回覆盖，确保只展示当前知识库的排队信息
+                if (!currentKb.value || currentKb.value.id !== kbId) {
+                    console.warn('[知识库队列] 响应时当前知识库已变更，忽略该结果', kbId);
+                    return;
+                }
+                if (data.success) {
+                    const payload = data.data || {};
+                    // 后端返回的 kb_id 必须与当前知识库一致，避免不同知识库队列混淆
+                    if (payload.kb_id && payload.kb_id !== kbId) {
+                        console.warn('[知识库队列] 返回的 kb_id 与当前知识库不一致，已忽略', payload.kb_id, kbId);
+                        return;
+                    }
+                    kbQueueInfo.value = {
+                        kb_id: kbId,
+                        count: payload.count || 0,
+                        tasks: payload.tasks || []
+                    };
+                    console.log('[知识库队列] 加载成功', kbId, kbQueueInfo.value);
+                } else {
+                    console.warn('[知识库队列] 加载失败', data.message);
+                }
+            } catch (e) {
+                console.error('[知识库队列] 请求异常', e);
+            } finally {
+                kbQueueLoading.value = false;
+            }
+        }
+
+        // 从队列任务的 file_path(下载url) 中提取文件名用于展示
+        function getQueueFileName(filePath) {
+            if (!filePath) return '未知文件';
+            try {
+                const path = filePath.split('?')[0];
+                const name = path.substring(path.lastIndexOf('/') + 1);
+                return decodeURIComponent(name) || path;
+            } catch (e) {
+                return filePath;
+            }
         }
 
         function handleKbFileSelect(e) {
@@ -1562,6 +1617,8 @@ createApp({
                         currentKb.value.file_path = fp;
                         kbFilePaths.value = fp;
                     }
+                    // 上传入队后刷新当前知识库的排队信息
+                    loadKbQueue();
                 } else {
                     pendingFiles.forEach(fileItem => {
                         fileItem.status = 'error';
@@ -3306,8 +3363,9 @@ createApp({
             changeKbPage, changeKbPageSize,
             // 知识库详情
             showKbDetailModal, currentKb, kbDetailTab, kbUploadFiles, kbTestQuery, kbTestResults, kbTestLoading,
-            kbFilePaths,
+            kbFilePaths, kbQueueInfo, kbQueueLoading,
             openKbDetailModal, handleKbFileSelect, removeKbUploadFile, uploadKbFiles, testKbRetrieval, formatFileSize,
+            loadKbQueue, getQueueFileName,
             switchKbDetailTab,
         };
     },
@@ -5299,6 +5357,30 @@ createApp({
                 <button class="btn btn-primary" @click="uploadKbFiles" :disabled="!kbUploadFiles.some(f => f.status === 'pending')">
                   <svg class="icon"><use href="#icon-upload"/></svg> 开始上传
                 </button>
+              </div>
+              <!-- 当前知识库排队信息 -->
+              <div class="kb-queue-info">
+                <div class="kb-queue-header">
+                  <h4 class="kb-queue-title">
+                    <svg class="icon"><use href="#icon-clock"/></svg> 当前知识库排队信息
+                  </h4>
+                  <button class="btn btn-secondary btn-sm" @click="loadKbQueue" :disabled="kbQueueLoading">
+                    <svg v-if="!kbQueueLoading" class="icon"><use href="#icon-refresh"/></svg>
+                    <svg v-else class="icon icon-spinner spinning"><use href="#icon-spinner"/></svg>
+                    {{ kbQueueLoading ? '刷新中...' : '刷新' }}
+                  </button>
+                </div>
+                <div class="kb-queue-summary">
+                  排队中：<span class="kb-queue-count">{{ kbQueueInfo.count }}</span> 个文件
+                </div>
+                <div v-if="kbQueueInfo.count === 0" class="kb-queue-empty">当前知识库暂无排队任务</div>
+                <ul v-else class="kb-queue-list">
+                  <li v-for="(task, index) in kbQueueInfo.tasks" :key="index" class="kb-queue-item">
+                    <span class="kb-queue-index">{{ index + 1 }}</span>
+                    <span class="kb-queue-file" :title="task.file_path">{{ getQueueFileName(task.file_path) }}</span>
+                    <span class="kb-queue-status">排队中</span>
+                  </li>
+                </ul>
               </div>
             </div>
             <!-- 命中测试标签页 -->

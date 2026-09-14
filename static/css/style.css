@@ -5788,3 +5788,103 @@ body {
     border-radius: 10px;
     padding: 2px 8px;
 }
+
+/* 知识库排队信息 */
+.kb-queue-info {
+    margin-top: 20px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+}
+
+.kb-queue-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.kb-queue-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.kb-queue-title .icon {
+    width: 18px;
+    height: 18px;
+    fill: var(--primary-color);
+}
+
+.kb-queue-summary {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+}
+
+.kb-queue-count {
+    font-weight: 700;
+    color: var(--warning-color);
+    font-size: 15px;
+}
+
+.kb-queue-empty {
+    font-size: 13px;
+    color: var(--text-secondary);
+    padding: 8px 0;
+}
+
+.kb-queue-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.kb-queue-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.kb-queue-index {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    text-align: center;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: #fff;
+    font-size: 12px;
+}
+
+.kb-queue-file {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.kb-queue-status {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--warning-color);
+    background: rgba(245, 158, 11, .12);
+    border-radius: 10px;
+    padding: 2px 10px;
+}

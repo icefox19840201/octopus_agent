@@ -24,9 +24,9 @@ import re
 import uuid
 #from funasr import AutoModel
 class RagService:
-
+    #----------------------------rag入库部分-----------------------------
     @classmethod
-    def know2db(cls, filepath: str, download_url: str):
+    def know2db(cls, filepath: str, download_url: str,kb_id:str):
         """
         将文档转换为向量并存储到数据库
         
@@ -44,7 +44,7 @@ class RagService:
         file_ex_with_audio = ['wav', 'mp3']
         file_ex = Path(filepath).suffix
         doc_id = str(uuid.uuid4())
-
+        logger.info(f'kb_id====>{kb_id}')
         if file_ex in file_ex_name_with_mineru or file_ex in file_ex_name_without_mineru:
             markdown_path = cls.docs2_markdown(filepath)
             
@@ -70,7 +70,7 @@ class RagService:
             logger.info(f'切分完成，生成 {len(nodes)} 个节点')
             logger.info(f'开始向量化并入库...')
             
-            cls.embeddingdoc2db(nodes)
+            cls.embeddingdoc2db(nodes,collection_name=kb_id)
             logger.info('入库完成...')
 
         elif file_ex in file_ex_with_audio:
@@ -119,23 +119,8 @@ class RagService:
 
         #res = model.generate(input="offline_audio.wav", language="zh")
         pass
-
-
-
     @classmethod
-    def embeddingdoc2db(cls, node, collection_name='test'):
-        '''
-        文档入库 - 确保 category 和其他自定义字段作为独立标量字段
-        注意：doc_id 字段已由 MilvusVectorStore 自动创建，不需要在 scalar_field_names 中重复定义
-        '''
-        logger.info('准备入库')
-        embed_model = HuggingFaceEmbedding(
-            model_name=settings.EMBEDDING_MODEL,
-            device="cpu",
-            normalize=True
-        )
-        llamaindex_settings.Settings.embed_model = embed_model
-
+    def get_milvus(cls,collection_name):
         vector_store = MilvusVectorStore(
             uri=settings.MILVUS_URI,
             collection_name=collection_name,
@@ -148,7 +133,7 @@ class RagService:
                 "metric_type": "COSINE",
                 "params": {"M": 16, "efConstruction": 200}
             },
-            
+
             # 搜索配置
             search_config={
                 "metric_type": "COSINE",
@@ -159,25 +144,45 @@ class RagService:
             scalar_field_types=[
                 DataType.VARCHAR,  # file_name
                 DataType.VARCHAR,  # file_type
-                DataType.VARCHAR   # source
+                DataType.VARCHAR  # source
             ],
             output_fields=["doc_id", "file_name", "file_type", "source"],
             user=settings.MILVUS_USER,
             password=settings.DB_PASSWORD,
             db_name=settings.rag_db_name
         )
-        
+        return vector_store
+
+    @classmethod
+    def get_embed_model(cls):
+        '''
+        获取embedding模型
+        '''
+        embed_model = HuggingFaceEmbedding(
+            model_name=settings.EMBEDDING_MODEL,
+            device="cpu",
+            normalize=True
+        )
+        return embed_model
+
+    @classmethod
+    def embeddingdoc2db(cls, node, collection_name='test'):
+        '''
+        文档入库 - 确保 category 和其他自定义字段作为独立标量字段
+        注意：doc_id 字段已由 MilvusVectorStore 自动创建，不需要在 scalar_field_names 中重复定义
+        '''
+        logger.info('准备入库')
+        embed_model=cls.get_embed_model()
+        llamaindex_settings.Settings.embed_model = embed_model
+        vector_store=cls.get_milvus(collection_name=collection_name)
         storage_content = StorageContext.from_defaults(vector_store=vector_store)
         vector_index = VectorStoreIndex(nodes=node, storage_context=storage_content)
-        
         os.makedirs(settings.INDEX_DIR, exist_ok=True)
-        vector_index.storage_context.persist(settings.EMBEDINDEX_DIR)
-        
+        vector_index.storage_context.persist(os.path.join(settings.EMBEDINDEX_DIR,collection_name))
         print(f"✓ Milvus 向量索引创建成功: {collection_name}")
         print(f"  - 向量维度: {settings.VECTOR_DIM}")
         print(f"  - 节点数量: {len(node)}")
         print(f"  - 索引类型: HNSW (COSINE)")
-
         
         # bm25索引创建
         print('创建bm25索引')
@@ -186,8 +191,8 @@ class RagService:
             similarity_top_k=20,
             verbose=False
         )
-        os.makedirs(settings.BM25_INDEX_DIR, exist_ok=True)
-        bm25_retriever.persist(settings.BM25_INDEX_DIR)
+        os.makedirs(os.path.join(settings.BM25_INDEX_DIR,collection_name), exist_ok=True)
+        bm25_retriever.persist(os.path.join(settings.BM25_INDEX_DIR,collection_name))
         print('bm25索引创建完成')
 
 
@@ -374,3 +379,18 @@ class RagService:
             base_dir=base_dir,
             **kwargs,
         )
+
+#------------------------rag查询部分-------------------------
+def hit_test():
+    '''
+    rag查询命中测试
+    '''
+
+    pass
+
+def hybrid_search(question:str):
+    '''
+    rag查询
+    '''
+    pass
+

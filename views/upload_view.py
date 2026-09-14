@@ -127,7 +127,7 @@ async def upload_multiple_files(
             )
             download_url=f'http://{settings.minio_remote_addr}/rag/{unique_filename}'
             logger.info(f'文件下载url: {download_url}')
-            await producer(download_url)
+            await producer(download_url,kb_id)
             results.append({
                 "success": True,
                 "message": "上传成功",

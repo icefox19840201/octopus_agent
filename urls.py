@@ -22,6 +22,8 @@ from views.knowledge_base_view import (
     list_documents as doc_list,
     delete_document as doc_delete
 )
+from views.rag_view import hit_test as kb_hit_test
+from views.rag_view import get_kb_queue as kb_queue
 from views.model_view import get_active_models as model_active_list
 from views.dashboard_view import (
     get_dashboard_overview as dashboard_overview,
@@ -153,5 +155,7 @@ sys_router.add_api_route('/knowledge-bases/{kb_id}', kb_delete, methods=["DELETE
 sys_router.add_api_route('/knowledge-bases/{kb_id}/documents', doc_list, methods=["GET"], tags=["知识库管理"], description="获取文档列表")
 sys_router.add_api_route('/knowledge-bases/documents', doc_create, methods=["POST"], tags=["知识库管理"], description="创建文档")
 sys_router.add_api_route('/knowledge-bases/documents/{doc_id}', doc_delete, methods=["DELETE"], tags=["知识库管理"], description="删除文档")
+sys_router.add_api_route('/knowledge-bases/{kb_id}/hit-test', kb_hit_test, methods=["POST"], tags=["知识库管理"], description="知识库命中测试")
+sys_router.add_api_route('/knowledge-bases/{kb_id}/queue', kb_queue, methods=["GET"], tags=["知识库管理"], description="获取知识库在Redis队列中排队中的上传任务")
 
 
