@@ -522,6 +522,7 @@ createApp({
         const kbTestQuery = ref('');
         const kbTestResults = ref([]);
         const kbTestLoading = ref(false);
+        const kbTestSearched = ref(false); // 是否已执行过命中测试（用于区分"未测试"与"查无结果"）
         const kbFilePaths = ref([]); // 知识库 file_path 字段（数据库查询结果）
         const kbQueueInfo = ref({ kb_id: null, count: 0, tasks: [] }); // 当前知识库在 redis 中排队中的任务
         const kbQueueLoading = ref(false);
@@ -1496,6 +1497,7 @@ createApp({
             kbUploadFiles.value = [];
             kbTestQuery.value = '';
             kbTestResults.value = [];
+            kbTestSearched.value = false;
             kbFilePaths.value = [];
             kbQueueInfo.value = { kb_id: kb.id, count: 0, tasks: [] };
             showKbDetailModal.value = true;
@@ -1648,6 +1650,7 @@ createApp({
 
             kbTestLoading.value = true;
             kbTestResults.value = [];
+            kbTestSearched.value = false;
 
             try {
                 // 实际请求知识库命中测试接口
@@ -1666,6 +1669,7 @@ createApp({
                 }
 
                 kbTestResults.value = parseHitTestResults(data);
+                kbTestSearched.value = true;
                 if (kbTestResults.value.length === 0) {
                     showToast('未检索到匹配结果', 'warning');
                 }
@@ -3412,7 +3416,7 @@ createApp({
             openKbDocModal, saveKbDoc, deleteKbDoc, loadKbDocuments,
             changeKbPage, changeKbPageSize,
             // 知识库详情
-            showKbDetailModal, currentKb, kbDetailTab, kbUploadFiles, kbTestQuery, kbTestResults, kbTestLoading,
+            showKbDetailModal, currentKb, kbDetailTab, kbUploadFiles, kbTestQuery, kbTestResults, kbTestLoading, kbTestSearched,
             kbFilePaths, kbQueueInfo, kbQueueLoading,
             openKbDetailModal, handleKbFileSelect, removeKbUploadFile, uploadKbFiles, testKbRetrieval, formatFileSize,
             loadKbQueue, getQueueFileName,
@@ -5458,6 +5462,10 @@ createApp({
                   </div>
                   <div class="result-content" v-html="renderMarkdown(result.content)"></div>
                 </div>
+              </div>
+              <div v-else-if="kbTestSearched" class="test-empty">
+                <svg class="icon"><use href="#icon-search"/></svg>
+                <p>查无结果，未在该知识库中检索到相关内容</p>
               </div>
             </div>
             <!-- 文件列表标签页 -->

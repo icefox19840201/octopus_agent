@@ -159,7 +159,7 @@ class RagService:
             uri=settings.MILVUS_URI,
             collection_name=collection_name,
             dim=settings.VECTOR_DIM,
-            overwrite=True,
+            overwrite=False,
 
             # 向量索引配置
             index_config={
