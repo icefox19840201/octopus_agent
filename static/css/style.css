@@ -5651,9 +5651,28 @@ body {
     color: var(--danger-color);
 }
 
+.result-source-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
 .result-source {
     font-size: 13px;
     color: var(--text-secondary);
+}
+
+a.result-source {
+    color: var(--primary-color);
+    text-decoration: none;
+    max-width: 420px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+a.result-source:hover {
+    text-decoration: underline;
 }
 
 .result-content {
@@ -5661,6 +5680,31 @@ body {
     color: var(--text-primary);
     line-height: 1.6;
     margin: 0;
+    overflow-x: auto;
+    word-break: break-word;
+}
+
+.result-content p {
+    margin: 0 0 8px 0;
+}
+
+.result-content table {
+    border-collapse: collapse;
+    margin: 8px 0;
+    font-size: 13px;
+}
+
+.result-content th,
+.result-content td {
+    border: 1px solid var(--border-color);
+    padding: 6px 10px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.result-content th {
+    background: rgba(0, 0, 0, 0.05);
+    font-weight: 600;
 }
 
 /* 知识库文件列表 */

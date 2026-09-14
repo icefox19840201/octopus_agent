@@ -33,15 +33,11 @@ async def hit_test(kb_id: str, request: Request, authorization: Optional[str] = 
         if not user:
             return JSONResponse({"success": False, "message": "用户不存在"}, status_code=401)
 
-        result = RagService.hit_test(
-            kb_id,
-            question,
-            user["user_id"],
-            user.get("department_id")
+        results = RagService.hit_test(
+          query=question,kb_id=kb_id
         )
-        if result["success"]:
-            return JSONResponse(result)
-        return JSONResponse(result, status_code=400)
+        logger.info(f"知识库 {kb_id} 命中测试完成，返回 {len(results)} 条结果")
+        return JSONResponse({"success": True, "data": {"kb_id": kb_id, "count": len(results), "results": results}})
     except Exception as e:
         logger.error(f"知识库命中测试失败: {e}")
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)

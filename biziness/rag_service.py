@@ -6,7 +6,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from llama_index.core import Document,VectorStoreIndex,StorageContext,load_index_from_storage
 from llama_index.core import settings as llamaindex_settings
 from llama_index.core.schema import TextNode
-from llama_index.core.retrievers import VectorIndexRetriever
+from llama_index.core.retrievers import VectorIndexRetriever,QueryFusionRetriever
 from llama_index.core.schema import NodeWithScore,QueryBundle
 from llama_index.llms.openai import OpenAI
 from llama_index.core.schema import RelatedNodeInfo, NodeRelationship
@@ -22,7 +22,41 @@ import settings
 import os
 import re
 import uuid
-#from funasr import AutoModel
+
+class BGEReranker:
+    """BGE Cross-Encoder Reranker"""
+
+    def __init__(self, model, top_k=5):
+        self._model = model
+        self._top_k = top_k
+
+    def rerank(self, query: str, nodes: List[NodeWithScore]) -> List[NodeWithScore]:
+        """
+        使用 BGE Cross-Encoder 对节点进行重排序
+        """
+        if not nodes:
+            return []
+
+        # 构建 query-document pairs
+        pairs = [[query, node.text] for node in nodes]
+
+        # 使用 Cross-Encoder 预测相关性分数
+        scores = self._model.predict(pairs)
+
+        # 创建新的节点列表，使用 rerank 分数
+        reranked_nodes = []
+        for i, node in enumerate(nodes):
+            new_node = NodeWithScore(
+                node=node.node,
+                score=float(scores[i])
+            )
+            reranked_nodes.append(new_node)
+
+        # 按分数降序排序
+        reranked_nodes.sort(key=lambda x: x.score, reverse=True)
+
+        return reranked_nodes[:self._top_k]
+
 class RagService:
     #----------------------------rag入库部分-----------------------------
     @classmethod
@@ -163,6 +197,7 @@ class RagService:
             device="cpu",
             normalize=True
         )
+        llamaindex_settings.Settings.embed_model = embed_model
         return embed_model
 
     @classmethod
@@ -172,8 +207,7 @@ class RagService:
         注意：doc_id 字段已由 MilvusVectorStore 自动创建，不需要在 scalar_field_names 中重复定义
         '''
         logger.info('准备入库')
-        embed_model=cls.get_embed_model()
-        llamaindex_settings.Settings.embed_model = embed_model
+        cls.get_embed_model()
         vector_store=cls.get_milvus(collection_name=collection_name)
         storage_content = StorageContext.from_defaults(vector_store=vector_store)
         vector_index = VectorStoreIndex(nodes=node, storage_context=storage_content)
@@ -380,17 +414,93 @@ class RagService:
             **kwargs,
         )
 
-#------------------------rag查询部分-------------------------
-def hit_test():
-    '''
-    rag查询命中测试
-    '''
+    #------------------------rag查询部分-------------------------
 
-    pass
+    @classmethod
+    def get_reranker(cls, top_k: int = 20):
+        '''
+        获取 BGE 重排模型（惰性加载并缓存，避免每次请求重复加载）
+        '''
+        if getattr(cls, '_reranker', None) is None:
+            cross_encoder = CrossEncoder(settings.rerank_model, device="cpu")
+            cls._reranker = BGEReranker(cross_encoder, top_k=top_k)
+            logger.info('BGE 重排模型加载完成并缓存')
+        return cls._reranker
 
-def hybrid_search(question:str):
-    '''
-    rag查询
-    '''
-    pass
+    @classmethod
+    def hit_test(cls,query,kb_id:str):
+        '''
+        rag查询命中测试
+        '''
+        logger.info(f'kb_id:{kb_id}')
+        cls.get_embed_model()
+        vector_store=cls.get_milvus(collection_name=kb_id)
+        #加载向量索引
+        index_dir=os.path.join(settings.EMBEDINDEX_DIR,kb_id)
+        storage_context = StorageContext.from_defaults(
+            persist_dir=index_dir,
+            vector_store=vector_store
+        )
+        vector_index = load_index_from_storage(storage_context)
+        #向量检索
+        vector_retriever = VectorIndexRetriever(
+            index=vector_index,
+            similarity_top_k=20
+        )
+        logger.info("向量索引加载成功!")
+        bm25_index_dir=os.path.join(settings.BM25_INDEX_DIR,kb_id)
+        #bm25检索
+        bm25_retriever = BM25Retriever.from_persist_dir(bm25_index_dir)
+        logger.info('bm25索引加载完成')
+        #权重设置，向量 60%, BM25 40%
+        RETRIEVER_WEIGHTS = [0.6, 0.4]
+        #向量检索器召回10个 + BM25检索器召回20个 → RRF融合后输出20个
+        FUSION_TOP_K= 20
+
+        fusion_retriever = QueryFusionRetriever(
+            retrievers=[vector_retriever, bm25_retriever],
+            similarity_top_k=FUSION_TOP_K,  # 融合后输出数量
+            num_queries=1,
+            mode="reciprocal_rerank",
+            retriever_weights=RETRIEVER_WEIGHTS,  # 设置权重
+            use_async=False,
+            verbose=False
+        )
+        reranker = cls.get_reranker(top_k=20)
+        # RRF 混合检索 + BGE Reranker 精排
+        query_bundle = QueryBundle(query)
+        print(query_bundle)
+        logger.info('rrf融合完成')
+        logger.info('混合检索开始执行')
+        rrf_nodes = fusion_retriever.retrieve(query_bundle)
+        logger.info('结果重排')
+        reranked_nodes = reranker.rerank(query, rrf_nodes)
+        # 过滤：只保留 >= 0.6 的结果用于回答
+        filtered_nodes = [n for n in reranked_nodes if n.score >= 0.6]
+        if not filtered_nodes:
+            logger.info('未找到满足条件的结果 (score >= 0.6)')
+        # 组装命中结果，附带每条数据的引用源（文件名/文件类型/下载地址）
+        results = []
+        for node in filtered_nodes:
+            meta = node.metadata or {}
+            results.append({
+                "content": node.text,
+                "score": float(node.score) if node.score is not None else None,
+                "file_name": meta.get("file_name"),
+                "file_type": meta.get("file_type"),
+                "source": meta.get("source"),
+            })
+        source_files = sorted({r["file_name"] for r in results if r.get("file_name")})
+        logger.info(f'命中测试返回 {len(results)} 条结果，引用源: {source_files}')
+        return results
+
+
+    def hybrid_search(question:str):
+        '''
+        rag查询
+        '''
+        rerank_model = settings.rerank_model
+        reranker_model = CrossEncoder(rerank_model, device="cpu")
+        print("BGE Reranker 模型加载完成")
+        pass
 

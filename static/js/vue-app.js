@@ -1638,22 +1638,72 @@ createApp({
                 showToast('请输入测试查询', 'error');
                 return;
             }
+            if (!currentKb.value || !currentKb.value.id) {
+                showToast('未选择知识库', 'error');
+                return;
+            }
+
+            const kbId = currentKb.value.id;
+            const question = kbTestQuery.value.trim();
+
             kbTestLoading.value = true;
             kbTestResults.value = [];
 
             try {
-                // 模拟命中测试
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                kbTestResults.value = [
-                    { content: '这是知识库中与查询相关的第一个文档片段...', score: 0.95, source: '文档1.pdf' },
-                    { content: '这是第二个相关的文档片段，包含一些关键信息...', score: 0.87, source: '文档2.docx' },
-                    { content: '这是第三个相关的文档片段...', score: 0.72, source: '文档3.txt' }
-                ];
+                // 实际请求知识库命中测试接口
+                console.log('[命中测试] 发起请求', { kb_id: kbId, question });
+                const data = await api.post(`/api/knowledge-bases/${kbId}/hit-test`, { question });
+                console.log('[命中测试] 接口返回', data);
+
+                // 防止切换知识库后旧请求结果覆盖
+                if (!currentKb.value || currentKb.value.id !== kbId) {
+                    console.warn('[命中测试] 响应时当前知识库已变更，忽略结果', kbId);
+                    return;
+                }
+                if (data && data.success === false) {
+                    showToast(data.message || '命中测试失败', 'error');
+                    return;
+                }
+
+                kbTestResults.value = parseHitTestResults(data);
+                if (kbTestResults.value.length === 0) {
+                    showToast('未检索到匹配结果', 'warning');
+                }
             } catch (e) {
-                showToast('测试失败', 'error');
+                console.error('[命中测试] 请求异常', e);
+                showToast('测试失败: ' + e.message, 'error');
             } finally {
                 kbTestLoading.value = false;
             }
+        }
+
+        // 片段里的 <table> 是切分时被内联还原的，这里让它独立成块，
+        // 保证 marked 能正确渲染表格，且其后的 Markdown（如 ## 标题）也能被解析
+        function normalizeChunkHtml(text) {
+            if (!text) return '';
+            return text.replace(/(<table[\s\S]*?<\/table>)/gi, '\n\n$1\n\n');
+        }
+
+        // 解析命中测试返回内容为结果列表
+        function parseHitTestResults(data) {
+            if (!data) return [];
+            // 后端返回拼接后的命中片段字符串，形如 "[1] 片段内容\n\n[2] 片段内容"
+            if (typeof data === 'string') {
+                return data.split('\n\n')
+                    .map(s => s.replace(/^\[\d+\]\s*/, '').trim())
+                    .filter(Boolean)
+                    .map(content => ({ content: normalizeChunkHtml(content) }));
+            }
+            // 兼容结构化返回：{data:{results:[...]}} / {data:[...]} / [...]
+            const payload = data.data !== undefined ? data.data : data;
+            const list = Array.isArray(payload) ? payload : (payload && Array.isArray(payload.results) ? payload.results : []);
+            return list.map(item => ({
+                content: normalizeChunkHtml(item.content || item.text || ''),
+                score: item.score,
+                // source 展示用文件名，url 为原始文件下载地址（引用源）
+                source: item.file_name || item.source || '',
+                url: item.source || item.url || ''
+            })).filter(r => r.content);
         }
 
         async function switchKbDetailTab(tab) {
@@ -5396,13 +5446,17 @@ createApp({
               <div v-if="kbTestResults.length > 0" class="test-results">
                 <h4>检索结果</h4>
                 <div v-for="(result, index) in kbTestResults" :key="index" class="test-result-item">
-                  <div class="result-score">
-                    <span class="score-badge" :class="result.score >= 0.8 ? 'high' : result.score >= 0.6 ? 'medium' : 'low'">
+                  <div v-if="result.score != null || result.source" class="result-score">
+                    <span v-if="result.score != null" class="score-badge" :class="result.score >= 0.8 ? 'high' : result.score >= 0.6 ? 'medium' : 'low'">
                       {{ (result.score * 100).toFixed(1) }}%
                     </span>
-                    <span class="result-source">{{ result.source }}</span>
+                    <span v-if="result.source" class="result-source-label">引用源：</span>
+                    <a v-if="result.source && result.url" class="result-source" :href="result.url" target="_blank" rel="noopener" :title="result.source">
+                      {{ result.source }}
+                    </a>
+                    <span v-else-if="result.source" class="result-source">{{ result.source }}</span>
                   </div>
-                  <p class="result-content">{{ result.content }}</p>
+                  <div class="result-content" v-html="renderMarkdown(result.content)"></div>
                 </div>
               </div>
             </div>
