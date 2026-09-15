@@ -67,7 +67,7 @@ MILVUS_PASSWORD = "Pass@word1984"
 VECTOR_DIM = 1024
 #embedding模型
 EMBEDDING_MODEL = r"E:\bigmodel\huggingface_model\embedding\bge-large-zh-v1.5"
-rerank_model=r'E:\bigmodel\huggingface_model\embedding\bge-reranker-large'
+rerank_model=r'E:\bigmodel\modelscope_model\bge-reranker-base'
 #rag的数据库名称
 rag_db_name='rag'
 #==============rag配置结束===================

@@ -426,57 +426,72 @@ class RagService:
             cls._reranker = BGEReranker(cross_encoder, top_k=top_k)
             logger.info('BGE 重排模型加载完成并缓存')
         return cls._reranker
-
     @classmethod
-    def hit_test(cls,query,kb_id:str):
+    def hybrid_retrieval(cls,query:str,kb_id:str,top_k:int,RETRIEVER_WEIGHTS:List,score:float):
         '''
-        rag查询命中测试
+        混合检索
+        query：用户问题
+        kb_id：表名
+        top_k:查询条数
+        RETRIEVER_WEIGHTS 权重设置（向量检索与bm25）
+        score 重排后打分返回的设定值
         '''
-        logger.info(f'kb_id:{kb_id}')
+        logger.info('混合检索')
+        logger.info(f'参数传入信息=>kb_id:{kb_id},top_k:{top_k},score:{score},RETRIEVER_WEIGHTS:{RETRIEVER_WEIGHTS}')
+        # 设置全局 embedding 模型（向量检索时对 query 编码使用）
         cls.get_embed_model()
-        vector_store=cls.get_milvus(collection_name=kb_id)
-        #加载向量索引
-        index_dir=os.path.join(settings.EMBEDINDEX_DIR,kb_id)
+        vector_store = cls.get_milvus(collection_name=kb_id)
+        # 加载向量索引
+        index_dir = os.path.join(settings.EMBEDINDEX_DIR, kb_id)
         storage_context = StorageContext.from_defaults(
             persist_dir=index_dir,
             vector_store=vector_store
         )
         vector_index = load_index_from_storage(storage_context)
-        #向量检索
+        # 向量检索器
         vector_retriever = VectorIndexRetriever(
             index=vector_index,
-            similarity_top_k=20
+            similarity_top_k=top_k
         )
         logger.info("向量索引加载成功!")
-        bm25_index_dir=os.path.join(settings.BM25_INDEX_DIR,kb_id)
-        #bm25检索
+        # bm25检索
+        bm25_index_dir = os.path.join(settings.BM25_INDEX_DIR, kb_id)
         bm25_retriever = BM25Retriever.from_persist_dir(bm25_index_dir)
         logger.info('bm25索引加载完成')
-        #权重设置，向量 60%, BM25 40%
-        RETRIEVER_WEIGHTS = [0.6, 0.4]
-        #向量检索器召回10个 + BM25检索器召回20个 → RRF融合后输出20个
-        FUSION_TOP_K= 20
-
+        # 权重设置，向量 60%, BM25 40%
+        RETRIEVER_WEIGHTS = RETRIEVER_WEIGHTS
+        # 向量检索器召回10个 + BM25检索器召回20个 → RRF融合后输出20个
         fusion_retriever = QueryFusionRetriever(
             retrievers=[vector_retriever, bm25_retriever],
-            similarity_top_k=FUSION_TOP_K,  # 融合后输出数量
+            similarity_top_k=top_k,  # 融合后输出数量
             num_queries=1,
             mode="reciprocal_rerank",
             retriever_weights=RETRIEVER_WEIGHTS,  # 设置权重
             use_async=False,
             verbose=False
         )
-        reranker = cls.get_reranker(top_k=20)
+        reranker = cls.get_reranker(top_k=top_k)
         # RRF 混合检索 + BGE Reranker 精排
         query_bundle = QueryBundle(query)
         print(query_bundle)
         logger.info('rrf融合完成')
         logger.info('混合检索开始执行')
         rrf_nodes = fusion_retriever.retrieve(query_bundle)
+        # 按文本内容去重：同一片段可能同时被向量库和 BM25 召回，
+        # 两边元数据不同导致 node.hash 不同，RRF 自身无法合并，这里再去一次
+        seen, deduped = set(), []
+        for n in sorted(rrf_nodes, key=lambda x: x.score or 0.0, reverse=True):
+            key = n.node.get_content()
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(n)
+        logger.info(f'候选去重：{len(rrf_nodes)} → {len(deduped)} 条')
+        rrf_nodes = deduped
         logger.info('结果重排')
         reranked_nodes = reranker.rerank(query, rrf_nodes)
-        # 过滤：只保留 >= 0.6 的结果用于回答
-        filtered_nodes = [n for n in reranked_nodes if n.score >= 0.6]
+        # 过滤：只保留 >= score 的结果用于回答
+        filtered_nodes = [n for n in reranked_nodes if n.score >= score]
         if not filtered_nodes:
             logger.info('未找到满足条件的结果 (score >= 0.6)')
         # 组装命中结果，附带每条数据的引用源（文件名/文件类型/下载地址）
@@ -494,13 +509,25 @@ class RagService:
         logger.info(f'命中测试返回 {len(results)} 条结果，引用源: {source_files}')
         return results
 
+    @classmethod
+    def hit_test(cls,query,kb_id:str):
+        '''
+        rag查询命中测试
+        '''
+        return cls.hybrid_retrieval(query=query,kb_id=kb_id,top_k=20,RETRIEVER_WEIGHTS=[0.6, 0.4],score=0.8)
 
-    def hybrid_search(question:str):
+    def hybrid_search(cls,query:str,kb_id:str,top_k:int,RETRIEVER_WEIGHTS:List,score:float):
         '''
         rag查询
         '''
-        rerank_model = settings.rerank_model
-        reranker_model = CrossEncoder(rerank_model, device="cpu")
-        print("BGE Reranker 模型加载完成")
-        pass
+
+        if not query or not kb_id or not top_k or not RETRIEVER_WEIGHTS or not score:
+            return [{
+                "content": '缺少必要参数',
+                "score": 0,
+                "file_name": '',
+                "file_type": '',
+                "source": '',
+            }]
+        return cls.hybrid_retrieval(query=query,kb_id=kb_id,top_k=top_k,RETRIEVER_WEIGHTS=RETRIEVER_WEIGHTS,score=score)
 

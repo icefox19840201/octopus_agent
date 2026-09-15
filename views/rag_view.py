@@ -5,7 +5,7 @@ from biziness.rag_service import RagService
 from biziness.auth_service import AuthService
 from biziness.redis_mq import get_kb_queue_tasks
 from utils.logger import logger
-
+import traceback
 
 def get_token_from_header(authorization: Optional[str] = Header(None)) -> Optional[str]:
     """从请求头中获取token"""
@@ -40,6 +40,8 @@ async def hit_test(kb_id: str, request: Request, authorization: Optional[str] = 
         return JSONResponse({"success": True, "data": {"kb_id": kb_id, "count": len(results), "results": results}})
     except Exception as e:
         logger.error(f"知识库命中测试失败: {e}")
+        msg=traceback.format_exc()
+        logger.exception(msg)
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
 
 
@@ -68,5 +70,8 @@ async def get_kb_queue(kb_id: str, authorization: Optional[str] = Header(None)):
             }
         })
     except Exception as e:
+
         logger.error(f"获取知识库排队信息失败: {e}")
+        msg=traceback.format_exc()
+        logger.exception(msg)
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
