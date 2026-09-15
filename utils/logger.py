@@ -9,7 +9,7 @@ from logging.handlers import TimedRotatingFileHandler, RotatingFileHandler
 LOG_DIR = Path(__file__).parent.parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-LOG_FILE = LOG_DIR / "skillagent.log"
+LOG_FILE = LOG_DIR / "octopus_agent.log"
 
 
 class CompressedRotatingFileHandler(TimedRotatingFileHandler):
@@ -189,7 +189,7 @@ _console_handler.setFormatter(_formatter)
 _console_handler.setLevel(logging.INFO)
 
 
-def get_logger(name: str = "skillagent") -> logging.Logger:
+def get_logger(name: str = "octopus_agent") -> logging.Logger:
     """获取配置好的日志记录器"""
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
@@ -203,7 +203,7 @@ def get_logger(name: str = "skillagent") -> logging.Logger:
 
 
 # 默认日志实例
-logger = get_logger("skillagent")
+logger = get_logger("octopus_agent")
 
 
 def get_log_stats():
